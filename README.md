@@ -1,4 +1,4 @@
-# Trading Journal App (tên tạm đặt)
+# Trading Journal App 
 
 > Web app nhật ký giao dịch tự động cho trader cá nhân & tài khoản Quỹ (Prop Firm), lấy cảm hứng tính năng từ mô hình sản phẩm "HocICT Journal" (journal.hocict.com) — xây dựng lại với thương hiệu, nội dung và mã nguồn hoàn toàn riêng.
 
