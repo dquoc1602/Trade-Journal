@@ -9,17 +9,29 @@ function parseAccountInput(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const broker = String(formData.get("broker") ?? "").trim();
   const account_type = String(formData.get("account_type") ?? "personal");
+  const account_stage = String(formData.get("account_stage") ?? "").trim();
+  const asset_class = String(formData.get("asset_class") ?? "forex_cfd");
   const currency = String(formData.get("currency") ?? "USD");
   const balanceRaw = String(formData.get("balance") ?? "0");
   const balance = balanceRaw ? Number(balanceRaw) : 0;
 
-  return { name, broker: broker || null, account_type, currency, balance };
+  return {
+    name,
+    broker: broker || null,
+    account_type,
+    account_stage: account_stage || null,
+    asset_class,
+    currency,
+    balance,
+  };
 }
 
 function validateAccountInput(input: ReturnType<typeof parseAccountInput>): string | null {
   if (!input.name) return "Vui lòng nhập tên tài khoản.";
   if (input.name.length > 100) return "Tên tài khoản tối đa 100 ký tự.";
   if (input.broker && input.broker.length > 100) return "Tên sàn tối đa 100 ký tự.";
+  if (input.account_stage && input.account_stage.length > 100) return "Giai đoạn tài khoản tối đa 100 ký tự.";
+  if (!["forex_cfd", "futures"].includes(input.asset_class)) return "Loại tài sản không hợp lệ.";
   if (Number.isNaN(input.balance)) return "Số dư không hợp lệ.";
   return null;
 }

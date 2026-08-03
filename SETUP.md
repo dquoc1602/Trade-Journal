@@ -13,7 +13,9 @@ npm install
 1. Vào [supabase.com](https://supabase.com) → tạo tài khoản (nếu chưa có) → **New Project**.
 2. Đặt tên project, chọn region gần bạn (Singapore là gần VN nhất), đặt mật khẩu DB (lưu lại).
 3. Đợi project khởi tạo xong (~2 phút).
-4. Vào **SQL Editor** (menu trái) → **New query** → mở file [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) trong dự án, copy toàn bộ nội dung, dán vào → bấm **Run**. Việc này tạo toàn bộ bảng, ràng buộc, và Row Level Security.
+4. Vào **SQL Editor** (menu trái) → **New query** → chạy LẦN LƯỢT 2 file theo đúng thứ tự (mỗi file 1 lần Run riêng):
+   - [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) — tạo toàn bộ bảng, ràng buộc, Row Level Security.
+   - [`supabase/migrations/0002_prop_firms_and_balance_sync.sql`](supabase/migrations/0002_prop_firms_and_balance_sync.sql) — thêm field quỹ Prop Firm/loại tài sản cho tài khoản, và trigger tự động cộng/trừ số dư theo lời/lỗ mỗi khi thêm/sửa/xóa lệnh.
 5. Vào **Project Settings → API** → copy 2 giá trị:
    - `Project URL`
    - `anon public` key
@@ -60,8 +62,11 @@ Mở `http://localhost:3000` → sẽ tự chuyển tới `/login`. Bấm **Đă
 ## Những gì đã có trong bản này (v1)
 
 - Đăng ký/đăng nhập (email + password qua Supabase Auth)
-- 5 module: Dashboard, Trades (CRUD đầy đủ), Calendar, Strategies (CRUD đầy đủ), Notes (CRUD đầy đủ)
-- Quản lý Tài khoản giao dịch (Trading Accounts)
+- 5 module: Dashboard, Trades (CRUD đầy đủ + import CSV hàng loạt), Calendar, Strategies (CRUD đầy đủ), Notes (CRUD đầy đủ)
+- Quản lý Tài khoản giao dịch: preset 5 quỹ Prop Firm (FTMO, The5ers, TopstepX, Bulenox, Lucid Trading) tự động điền loại tài sản (Forex/CFD hay Futures) + giai đoạn tài khoản (Evaluation/Funded...) theo từng quỹ
+- **Số dư tài khoản tự động cộng/trừ** theo lời/lỗ mỗi khi thêm/sửa/xóa lệnh (trigger Postgres, không cần tự tay cập nhật)
+- Nhật ký ngày tự liên kết ngay trên trang chi tiết lệnh (theo ngày đóng lệnh, giờ VN)
+- Trang **Kiến thức ICT/SMC** — tra cứu nhanh 24 khái niệm (FVG, Order Block, Silver Bullet, Judas Swing...) theo danh mục, có tìm kiếm
 - Toàn bộ logic phân tích: Win Rate, Profit Factor, Equity Curve, % Kỷ luật, Phân tích tâm lý
 
 ## Chưa có trong bản này (làm sau theo bạn yêu cầu)

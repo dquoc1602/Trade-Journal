@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { href: "/strategies", label: "Chiến lược", icon: "🎯" },
   { href: "/notes", label: "Nhật ký ngày", icon: "📝" },
   { href: "/accounts", label: "Tài khoản giao dịch", icon: "🏦" },
+  { href: "/knowledge", label: "Kiến thức ICT", icon: "📚" },
 ];
 
 export function Sidebar({ email }: { email: string }) {

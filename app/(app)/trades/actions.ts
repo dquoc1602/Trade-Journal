@@ -158,6 +158,87 @@ export async function quickAssignStrategy(tradeId: string, strategyId: string | 
   return { error: null };
 }
 
+export type BulkImportRow = {
+  symbol: string;
+  side: string;
+  volume: number;
+  open_price: number;
+  close_price: number | null;
+  open_time: string; // ISO UTC — đã quy đổi từ giờ địa phương ngay ở trình duyệt trước khi gửi lên
+  close_time: string | null; // ISO UTC
+  gross_profit: number;
+  commission: number;
+  swap: number;
+  emotion: string | null;
+  rr_ratio: number | null;
+  notes: string | null;
+};
+
+export type BulkImportResult = { error: string | null; insertedCount: number };
+
+export async function bulkImportTrades(
+  accountId: string,
+  strategyId: string | null,
+  rows: BulkImportRow[]
+): Promise<BulkImportResult> {
+  if (!accountId) return { error: "Vui lòng chọn tài khoản giao dịch.", insertedCount: 0 };
+  if (!Array.isArray(rows) || rows.length === 0) return { error: "Không có lệnh nào để nhập.", insertedCount: 0 };
+  if (rows.length > 500) return { error: "Tối đa 500 lệnh mỗi lần nhập, vui lòng chia nhỏ file.", insertedCount: 0 };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Phiên đăng nhập đã hết hạn.", insertedCount: 0 };
+
+  // Re-kiểm tra tối thiểu ở server, phòng trường hợp dữ liệu gửi lên không qua validate phía client.
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r.symbol || !["BUY", "SELL"].includes(r.side) || !(r.volume > 0) || !(r.open_price >= 0) || !r.open_time) {
+      return { error: `Dòng ${i + 1}: dữ liệu không hợp lệ, vui lòng kiểm tra lại.`, insertedCount: 0 };
+    }
+    if (Number.isNaN(new Date(r.open_time).getTime())) {
+      return { error: `Dòng ${i + 1}: open_time không hợp lệ.`, insertedCount: 0 };
+    }
+    const hasClosePrice = r.close_price !== null;
+    const hasCloseTime = Boolean(r.close_time);
+    if (hasClosePrice !== hasCloseTime) {
+      return { error: `Dòng ${i + 1}: cần điền đủ cả close_price và close_time, hoặc để trống cả hai.`, insertedCount: 0 };
+    }
+  }
+
+  const payload = rows.map((r) => ({
+    user_id: user.id,
+    account_id: accountId,
+    strategy_id: strategyId,
+    symbol: r.symbol,
+    side: r.side,
+    volume: r.volume,
+    open_price: r.open_price,
+    close_price: r.close_price,
+    open_time: r.open_time,
+    close_time: r.close_time,
+    gross_profit: r.gross_profit,
+    commission: r.commission,
+    swap: r.swap,
+    emotion: r.emotion,
+    rr_ratio: r.rr_ratio,
+    notes: r.notes,
+    status: r.close_price !== null && r.close_time ? "CLOSED" : "OPEN",
+    source: "csv_import",
+  }));
+
+  const { error } = await supabase.from("trades").insert(payload);
+  if (error) return { error: error.message, insertedCount: 0 };
+
+  revalidatePath("/trades");
+  revalidatePath("/");
+  revalidatePath("/calendar");
+  revalidatePath("/accounts");
+
+  return { error: null, insertedCount: rows.length };
+}
+
 export async function toggleRuleCheck(tradeId: string, ruleId: string, checked: boolean): Promise<ActionState> {
   const supabase = await createClient();
   const { error } = await supabase

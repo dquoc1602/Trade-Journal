@@ -1,4 +1,4 @@
-import type { AccountTypeValue, EmotionValue, MarketTrendValue, TradeSide, TradeStatusValue } from "@/lib/constants";
+import type { AccountTypeValue, AssetClassValue, EmotionValue, MarketTrendValue, TradeSide, TradeStatusValue } from "@/lib/constants";
 
 export type TradingAccount = {
   id: string;
@@ -6,6 +6,8 @@ export type TradingAccount = {
   name: string;
   broker: string | null;
   account_type: AccountTypeValue;
+  account_stage: string | null;
+  asset_class: AssetClassValue;
   currency: string;
   balance: number;
   created_at: string;

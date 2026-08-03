@@ -50,9 +50,14 @@ export default async function TradesPage({
         title="Lịch sử Giao dịch"
         description="Quản lý, tìm kiếm và phân tích tỷ lệ thắng theo bộ lọc nâng cao."
         action={
-          <Link href="/trades/new" className="btn-primary">
-            + Ghi lệnh thủ công
-          </Link>
+          <div className="flex gap-2">
+            <Link href="/trades/import" className="btn-secondary">
+              📥 Nhập từ CSV
+            </Link>
+            <Link href="/trades/new" className="btn-primary">
+              + Ghi lệnh thủ công
+            </Link>
+          </div>
         }
       />
 

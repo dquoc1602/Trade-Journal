@@ -30,6 +30,8 @@ export async function saveNote(_prev: ActionState, formData: FormData): Promise<
   if (error) return { error: error.message };
 
   revalidatePath("/notes");
+  revalidatePath("/trades");
+  revalidatePath("/");
   return { error: null };
 }
 
