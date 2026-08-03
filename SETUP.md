@@ -1,0 +1,71 @@
+# Hướng dẫn cài đặt & Deploy
+
+Đây là các bước **bạn** cần tự làm (tạo tài khoản, nhập thông tin thanh toán nếu có...) — tôi không thể tự đăng ký dịch vụ thay bạn. Sau mỗi bước, đưa tôi thông tin cần thiết (connection string, API key...) để tôi cắm vào code nếu cần.
+
+## 1. Cài dependencies (chạy trên máy bạn, trong thư mục dự án)
+
+```bash
+npm install
+```
+
+## 2. Tạo project Supabase
+
+1. Vào [supabase.com](https://supabase.com) → tạo tài khoản (nếu chưa có) → **New Project**.
+2. Đặt tên project, chọn region gần bạn (Singapore là gần VN nhất), đặt mật khẩu DB (lưu lại).
+3. Đợi project khởi tạo xong (~2 phút).
+4. Vào **SQL Editor** (menu trái) → **New query** → mở file [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) trong dự án, copy toàn bộ nội dung, dán vào → bấm **Run**. Việc này tạo toàn bộ bảng, ràng buộc, và Row Level Security.
+5. Vào **Project Settings → API** → copy 2 giá trị:
+   - `Project URL`
+   - `anon public` key
+
+## 3. Cấu hình biến môi trường
+
+Copy file `.env.local.example` thành `.env.local`:
+
+```bash
+cp .env.local.example .env.local
+```
+
+Mở `.env.local`, dán 2 giá trị lấy ở bước 2 vào:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=https://xxxxxxxxxxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJxxxxxxxxxxxxxxxxxxxxx
+```
+
+## 4. Chạy thử ở local
+
+```bash
+npm run dev
+```
+
+Mở `http://localhost:3000` → sẽ tự chuyển tới `/login`. Bấm **Đăng ký ngay** để tạo tài khoản đầu tiên cho chính bạn (đây là tài khoản Supabase Auth thật, không phải demo).
+
+> Lưu ý: mặc định Supabase yêu cầu xác nhận email khi đăng ký. Nếu bạn chỉ dùng cá nhân và muốn bỏ qua bước xác nhận email cho nhanh, vào Supabase Dashboard → **Authentication → Providers → Email** → tắt "Confirm email".
+
+## 5. Deploy lên Vercel
+
+1. Đẩy code lên GitHub (tạo repo mới, push code dự án lên).
+2. Vào [vercel.com](https://vercel.com) → tạo tài khoản (nếu chưa có, đăng nhập bằng GitHub cho tiện) → **Add New → Project** → chọn repo vừa push.
+3. Ở bước cấu hình, thêm **Environment Variables**:
+   - `NEXT_PUBLIC_SUPABASE_URL` = giá trị ở bước 2
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = giá trị ở bước 2
+4. Bấm **Deploy**. Sau ~1-2 phút sẽ có link dạng `https://<tên-dự-án>.vercel.app`.
+
+## 6. Sau khi deploy
+
+- Mỗi lần bạn (hoặc tôi) push code mới lên nhánh chính, Vercel tự động build & deploy lại (CI/CD có sẵn, không cần cấu hình thêm).
+- Muốn gắn domain riêng: Vercel Project → **Settings → Domains** → thêm domain bạn đã mua → trỏ DNS theo hướng dẫn Vercel đưa ra.
+
+## Những gì đã có trong bản này (v1)
+
+- Đăng ký/đăng nhập (email + password qua Supabase Auth)
+- 5 module: Dashboard, Trades (CRUD đầy đủ), Calendar, Strategies (CRUD đầy đủ), Notes (CRUD đầy đủ)
+- Quản lý Tài khoản giao dịch (Trading Accounts)
+- Toàn bộ logic phân tích: Win Rate, Profit Factor, Equity Curve, % Kỷ luật, Phân tích tâm lý
+
+## Chưa có trong bản này (làm sau theo bạn yêu cầu)
+
+- Auto-sync MT5 / BlackArrow / TopstepX web (xem lại [docs/PLATFORM_CONNECTIONS.md](docs/PLATFORM_CONNECTIONS.md) để tham khảo hướng làm)
+- Google OAuth login (hiện chỉ có email/password)
+- Academy/Mentor mode (chủ động bỏ qua vì dùng cá nhân)

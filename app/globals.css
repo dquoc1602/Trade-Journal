@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-background text-slate-100;
+}
+
+::selection {
+  @apply bg-primary/40;
+}
+
+input,
+select,
+textarea {
+  @apply bg-surface2 border border-border rounded-md px-3 py-2 text-sm text-slate-100 outline-none focus:border-primary transition-colors;
+}
+
+label {
+  @apply text-xs font-medium text-muted mb-1 block;
+}
+
+.card {
+  @apply bg-surface border border-border rounded-xl p-5;
+}
+
+.btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none;
+}
+
+.btn-primary {
+  @apply btn bg-primary text-white hover:bg-primary-hover;
+}
+
+.btn-secondary {
+  @apply btn bg-surface2 text-slate-100 border border-border hover:border-primary;
+}
+
+.btn-danger {
+  @apply btn bg-loss/10 text-loss border border-loss/40 hover:bg-loss/20;
+}
+
+.btn-ghost {
+  @apply btn text-muted hover:text-slate-100;
+}
+
+table.data-table {
+  @apply w-full text-sm border-collapse;
+}
+
+table.data-table th {
+  @apply text-left text-xs uppercase tracking-wide text-muted font-medium px-3 py-2 border-b border-border sticky top-0 bg-surface;
+}
+
+table.data-table td {
+  @apply px-3 py-2 border-b border-border/60 align-middle;
+}
+
+table.data-table tbody tr:hover {
+  @apply bg-surface2/60;
+}
