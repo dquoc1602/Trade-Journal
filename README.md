@@ -48,3 +48,4 @@ Tập trung 5 module lõi, **bỏ qua** AI Assistant chat và Academy/Mentor mod
 - Ý tưởng/tính năng (auto-sync lệnh, chấm điểm kỷ luật, nhật ký tâm lý...) không phải đối tượng được bảo hộ bản quyền, nhưng việc sao chép y hệt văn bản, giao diện pixel-for-pixel hoặc dùng lại thương hiệu "HocICT Journal" thì có thể vi phạm quyền sở hữu trí tuệ — cần tránh.
 # Trade-Journal
 # Trade-Journal
+# Trade-Journal
