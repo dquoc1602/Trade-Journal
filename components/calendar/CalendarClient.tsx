@@ -1,16 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import type { Trade, TradingAccount } from "@/lib/types";
-import { formatCurrency } from "@/lib/analytics";
+import { formatCurrency, vnDateKey } from "@/lib/analytics";
+import { Spinner } from "@/components/Spinner";
 
 const WEEKDAY_HEADERS = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
-
-function dateKey(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
 
 export function CalendarClient({
   year,
@@ -26,12 +23,13 @@ export function CalendarClient({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
 
   const tradesByDay = useMemo(() => {
     const map = new Map<string, Trade[]>();
     for (const t of trades) {
       if (!t.close_time) continue;
-      const key = dateKey(new Date(t.close_time));
+      const key = vnDateKey(t.close_time);
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(t);
     }
@@ -44,7 +42,7 @@ export function CalendarClient({
   const leadingBlanks = (firstOfMonth.getDay() + 6) % 7;
 
   const [selected, setSelected] = useState<string>(() => {
-    const todayKey = dateKey(new Date());
+    const todayKey = vnDateKey(new Date().toISOString());
     if (tradesByDay.has(todayKey)) return todayKey;
     const keys = Array.from(tradesByDay.keys()).sort();
     return keys[keys.length - 1] ?? todayKey;
@@ -60,14 +58,18 @@ export function CalendarClient({
     const params = new URLSearchParams(searchParams.toString());
     params.set("year", String(newYear));
     params.set("month", String(newMonth));
-    router.push(`${pathname}?${params.toString()}`);
+    startTransition(() => {
+      router.push(`${pathname}?${params.toString()}`);
+    });
   }
 
   function setAccount(accountId: string) {
     const params = new URLSearchParams(searchParams.toString());
     if (accountId) params.set("accountId", accountId);
     else params.delete("accountId");
-    router.push(`${pathname}?${params.toString()}`);
+    startTransition(() => {
+      router.push(`${pathname}?${params.toString()}`);
+    });
   }
 
   function prevMonth() {
@@ -90,17 +92,23 @@ export function CalendarClient({
       <div className="card">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
           <div className="flex items-center gap-3">
-            <button className="btn-secondary text-xs" onClick={prevMonth}>
+            <button className="btn-secondary text-xs" disabled={isPending} onClick={prevMonth}>
               ← Tháng trước
             </button>
-            <div className="font-semibold text-slate-100 w-32 text-center">
+            <div className="font-semibold text-slate-100 w-32 text-center flex items-center justify-center gap-2">
+              {isPending && <Spinner />}
               Tháng {String(month).padStart(2, "0")} / {year}
             </div>
-            <button className="btn-secondary text-xs" onClick={nextMonth}>
+            <button className="btn-secondary text-xs" disabled={isPending} onClick={nextMonth}>
               Tháng sau →
             </button>
           </div>
-          <select value={searchParams.get("accountId") ?? ""} onChange={(e) => setAccount(e.target.value)} className="w-56">
+          <select
+            value={searchParams.get("accountId") ?? ""}
+            disabled={isPending}
+            onChange={(e) => setAccount(e.target.value)}
+            className="w-56"
+          >
             <option value="">👤 Tất cả tài khoản</option>
             {accounts.map((a) => (
               <option key={a.id} value={a.id}>
@@ -130,7 +138,7 @@ export function CalendarClient({
           ))}
         </div>
 
-        <div className="grid grid-cols-7 gap-2">
+        <div className={`grid grid-cols-7 gap-2 transition-opacity ${isPending ? "opacity-60" : ""}`}>
           {cells.map((day, idx) => {
             if (day === null) return <div key={idx} />;
             const key = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;

@@ -15,6 +15,7 @@ import {
   currentDisciplineStreak,
   formatCurrency,
   formatPercent,
+  vnMidnightUtc,
 } from "@/lib/analytics";
 import type { Trade, TradingAccount } from "@/lib/types";
 
@@ -22,7 +23,11 @@ function rangeCutoff(range: string | undefined): Date | null {
   const now = new Date();
   if (range === "7d") return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   if (range === "30d") return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  if (range === "month") return new Date(now.getFullYear(), now.getMonth(), 1);
+  if (range === "month") {
+    // "Tháng này" tính theo lịch VN (UTC+7), không phụ thuộc timezone của server (Vercel chạy UTC)
+    const nowVn = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+    return vnMidnightUtc(nowVn.getUTCFullYear(), nowVn.getUTCMonth() + 1, 1);
+  }
   return null;
 }
 

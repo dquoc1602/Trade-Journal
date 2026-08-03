@@ -16,10 +16,18 @@ function parseAccountInput(formData: FormData) {
   return { name, broker: broker || null, account_type, currency, balance };
 }
 
+function validateAccountInput(input: ReturnType<typeof parseAccountInput>): string | null {
+  if (!input.name) return "Vui lòng nhập tên tài khoản.";
+  if (input.name.length > 100) return "Tên tài khoản tối đa 100 ký tự.";
+  if (input.broker && input.broker.length > 100) return "Tên sàn tối đa 100 ký tự.";
+  if (Number.isNaN(input.balance)) return "Số dư không hợp lệ.";
+  return null;
+}
+
 export async function createAccount(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const input = parseAccountInput(formData);
-  if (!input.name) return { error: "Vui lòng nhập tên tài khoản." };
-  if (Number.isNaN(input.balance)) return { error: "Số dư không hợp lệ." };
+  const validationError = validateAccountInput(input);
+  if (validationError) return { error: validationError };
 
   const supabase = await createClient();
   const {
@@ -37,9 +45,10 @@ export async function createAccount(_prev: ActionState, formData: FormData): Pro
 
 export async function updateAccount(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const id = String(formData.get("id") ?? "");
-  const input = parseAccountInput(formData);
   if (!id) return { error: "Thiếu ID tài khoản." };
-  if (!input.name) return { error: "Vui lòng nhập tên tài khoản." };
+  const input = parseAccountInput(formData);
+  const validationError = validateAccountInput(input);
+  if (validationError) return { error: validationError };
 
   const supabase = await createClient();
   const { error } = await supabase.from("trading_accounts").update(input).eq("id", id);

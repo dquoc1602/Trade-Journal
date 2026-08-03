@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { CalendarClient } from "@/components/calendar/CalendarClient";
+import { vnMidnightUtc } from "@/lib/analytics";
 import type { Trade, TradingAccount } from "@/lib/types";
 
 export default async function CalendarPage({
@@ -9,12 +10,14 @@ export default async function CalendarPage({
   searchParams: Record<string, string | undefined>;
 }) {
   const params = searchParams;
-  const now = new Date();
-  const year = params.year ? Number(params.year) : now.getFullYear();
-  const month = params.month ? Number(params.month) : now.getMonth() + 1; // 1-12
+  // "Hôm nay" phải tính theo giờ VN chứ không phải giờ server (Vercel chạy UTC),
+  // nếu không tháng mặc định hiển thị có thể sai lệch gần ranh giới nửa đêm.
+  const nowVn = new Date(Date.now() + 7 * 60 * 60 * 1000);
+  const year = params.year ? Number(params.year) : nowVn.getUTCFullYear();
+  const month = params.month ? Number(params.month) : nowVn.getUTCMonth() + 1; // 1-12
 
-  const monthStart = new Date(year, month - 1, 1);
-  const monthEnd = new Date(year, month, 1);
+  const monthStart = vnMidnightUtc(year, month, 1);
+  const monthEnd = month === 12 ? vnMidnightUtc(year + 1, 1, 1) : vnMidnightUtc(year, month + 1, 1);
 
   const supabase = await createClient();
 
@@ -38,7 +41,13 @@ export default async function CalendarPage({
         title="Lịch Giao Dịch"
         description="Theo dõi chuỗi ngày Thắng (xanh) / Thua (đỏ) để phát hiện pattern theo thời gian."
       />
-      <CalendarClient year={year} month={month} trades={(trades as Trade[]) ?? []} accounts={(accounts as TradingAccount[]) ?? []} />
+      <CalendarClient
+        key={`${year}-${month}`}
+        year={year}
+        month={month}
+        trades={(trades as Trade[]) ?? []}
+        accounts={(accounts as TradingAccount[]) ?? []}
+      />
     </div>
   );
 }

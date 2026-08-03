@@ -1,15 +1,18 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import type { TradingAccount } from "@/lib/types";
 import { ACCOUNT_TYPES, CURRENCIES } from "@/lib/constants";
 import { createAccount, deleteAccount, updateAccount, type ActionState } from "@/app/(app)/accounts/actions";
+import { useFormSuccessFlash } from "@/lib/useFormSuccessFlash";
+import { Spinner } from "@/components/Spinner";
 
 function SubmitButton({ label, pendingLabel }: { label: string; pendingLabel: string }) {
   const { pending } = useFormStatus();
   return (
     <button type="submit" className="btn-primary" disabled={pending}>
+      {pending && <Spinner />}
       {pending ? pendingLabel : label}
     </button>
   );
@@ -26,6 +29,7 @@ function AccountForm({
   const action = isEdit ? updateAccount : createAccount;
   const [state, formAction] = useFormState<ActionState, FormData>(action, { error: null });
   const formRef = useRef<HTMLFormElement>(null);
+  const savedFlash = useFormSuccessFlash(state, isEdit ? onDone : undefined);
 
   return (
     <form
@@ -33,7 +37,6 @@ function AccountForm({
       action={async (fd) => {
         await formAction(fd);
         if (!isEdit) formRef.current?.reset();
-        onDone?.();
       }}
       className="card space-y-4"
     >
@@ -46,6 +49,7 @@ function AccountForm({
           id={`name-${account?.id ?? "new"}`}
           name="name"
           required
+          maxLength={100}
           defaultValue={account?.name}
           placeholder="e.g. MT5 Live / cTrader Demo"
           className="w-full"
@@ -57,6 +61,7 @@ function AccountForm({
         <input
           id={`broker-${account?.id ?? "new"}`}
           name="broker"
+          maxLength={100}
           defaultValue={account?.broker ?? ""}
           placeholder="e.g. Exness / IC Markets"
           className="w-full"
@@ -99,6 +104,7 @@ function AccountForm({
       </div>
 
       {state.error && <p className="text-sm text-loss bg-loss/10 border border-loss/30 rounded-md px-3 py-2">{state.error}</p>}
+      {savedFlash && <p className="text-sm text-profit bg-profit/10 border border-profit/30 rounded-md px-3 py-2">✓ Đã lưu thay đổi</p>}
 
       <div className="flex gap-2">
         <SubmitButton label={isEdit ? "Lưu thay đổi" : "Thêm tài khoản mới"} pendingLabel="Đang lưu..." />
@@ -116,6 +122,13 @@ export function AccountsManager({ accounts }: { accounts: TradingAccount[] }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
+
+  // Nút xóa đã "vũ trang" (chờ bấm lần 2) tự tắt sau vài giây để tránh lỡ tay bấm trúng.
+  useEffect(() => {
+    if (!confirmId) return;
+    const t = setTimeout(() => setConfirmId(null), 4000);
+    return () => clearTimeout(t);
+  }, [confirmId]);
 
   async function handleDelete(id: string) {
     setDeletingId(id);
@@ -137,8 +150,8 @@ export function AccountsManager({ accounts }: { accounts: TradingAccount[] }) {
           ) : (
             <div key={acc.id} className="card">
               <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="font-medium text-slate-100">
+                <div className="min-w-0">
+                  <div className="font-medium text-slate-100 truncate">
                     {acc.account_type === "prop_firm" ? "🏆" : "📈"} {acc.name}
                     <span className="ml-2 text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-surface2 text-muted align-middle">
                       {acc.account_type === "prop_firm" ? "Prop Firm" : "Personal"}
@@ -152,7 +165,13 @@ export function AccountsManager({ accounts }: { accounts: TradingAccount[] }) {
                   </div>
                 </div>
                 <div className="flex gap-2 shrink-0">
-                  <button className="btn-ghost text-xs" onClick={() => setEditingId(acc.id)}>
+                  <button
+                    className="btn-ghost text-xs"
+                    onClick={() => {
+                      setConfirmId(null);
+                      setEditingId(acc.id);
+                    }}
+                  >
                     ✏️ Sửa
                   </button>
                   {confirmId === acc.id ? (
@@ -161,6 +180,7 @@ export function AccountsManager({ accounts }: { accounts: TradingAccount[] }) {
                       disabled={deletingId === acc.id}
                       onClick={() => handleDelete(acc.id)}
                     >
+                      {deletingId === acc.id && <Spinner tone="danger" className="mr-1" />}
                       {deletingId === acc.id ? "Đang xóa..." : "Xác nhận xóa?"}
                     </button>
                   ) : (

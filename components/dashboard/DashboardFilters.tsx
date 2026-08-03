@@ -1,7 +1,9 @@
 "use client";
 
+import { useTransition } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import type { TradingAccount } from "@/lib/types";
+import { Spinner } from "@/components/Spinner";
 
 const RANGES = [
   { value: "", label: "Tất cả thời gian" },
@@ -14,17 +16,30 @@ export function DashboardFilters({ accounts }: { accounts: TradingAccount[] }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
 
   function setParam(key: string, value: string) {
     const params = new URLSearchParams(searchParams.toString());
     if (value) params.set(key, value);
     else params.delete(key);
-    router.push(`${pathname}?${params.toString()}`);
+    startTransition(() => {
+      router.push(`${pathname}?${params.toString()}`);
+    });
   }
 
   return (
-    <div className="flex flex-wrap gap-3">
-      <select value={searchParams.get("accountId") ?? ""} onChange={(e) => setParam("accountId", e.target.value)} className="w-56">
+    <div className="flex items-center flex-wrap gap-3">
+      {isPending && (
+        <span className="flex items-center gap-1.5 text-xs text-muted">
+          <Spinner /> Đang tải...
+        </span>
+      )}
+      <select
+        value={searchParams.get("accountId") ?? ""}
+        disabled={isPending}
+        onChange={(e) => setParam("accountId", e.target.value)}
+        className="w-full sm:w-56"
+      >
         <option value="">🏦 Tất cả tài khoản</option>
         {accounts.map((a) => (
           <option key={a.id} value={a.id}>
@@ -32,7 +47,12 @@ export function DashboardFilters({ accounts }: { accounts: TradingAccount[] }) {
           </option>
         ))}
       </select>
-      <select value={searchParams.get("range") ?? ""} onChange={(e) => setParam("range", e.target.value)} className="w-48">
+      <select
+        value={searchParams.get("range") ?? ""}
+        disabled={isPending}
+        onChange={(e) => setParam("range", e.target.value)}
+        className="w-full sm:w-48"
+      >
         {RANGES.map((r) => (
           <option key={r.value} value={r.value}>
             ⏱️ {r.label}

@@ -20,6 +20,9 @@ function parseTradeInput(formData: FormData) {
   const volume = numOrNull(formData.get("volume"));
   const open_price = numOrNull(formData.get("open_price"));
   const close_price = numOrNull(formData.get("close_price"));
+  // open_time/close_time đến đây đã là chuỗi ISO UTC (được quy đổi từ giờ địa phương ngay ở
+  // trình duyệt, xem components/trades/TradeForm.tsx) — không parse lại bằng new Date() ở server
+  // vì server (Vercel) chạy giờ UTC, khác giờ VN của người dùng.
   const open_time = String(formData.get("open_time") ?? "");
   const close_time = String(formData.get("close_time") ?? "");
   const gross_profit = numOrNull(formData.get("gross_profit")) ?? 0;
@@ -30,7 +33,6 @@ function parseTradeInput(formData: FormData) {
   const rr_ratio = numOrNull(formData.get("rr_ratio"));
   const notes = String(formData.get("notes") ?? "").trim() || null;
   const screenshot_url = String(formData.get("screenshot_url") ?? "").trim() || null;
-  const status = close_price !== null && close_time ? "CLOSED" : "OPEN";
 
   return {
     account_id,
@@ -39,8 +41,8 @@ function parseTradeInput(formData: FormData) {
     volume,
     open_price,
     close_price,
-    open_time: open_time ? new Date(open_time).toISOString() : null,
-    close_time: close_time ? new Date(close_time).toISOString() : null,
+    open_time,
+    close_time,
     gross_profit,
     commission,
     swap,
@@ -49,18 +51,43 @@ function parseTradeInput(formData: FormData) {
     rr_ratio,
     notes,
     screenshot_url,
-    status,
   };
+}
+
+function validateTradeInput(input: ReturnType<typeof parseTradeInput>): string | null {
+  if (!input.account_id) return "Vui lòng chọn tài khoản giao dịch.";
+  if (!input.symbol) return "Vui lòng nhập cặp tiền/tài sản.";
+  if (input.symbol.length > 20) return "Mã cặp tiền/tài sản tối đa 20 ký tự.";
+  if (input.notes && input.notes.length > 5000) return "Ghi chú tối đa 5000 ký tự.";
+  if (input.screenshot_url && input.screenshot_url.length > 2000) return "Link ảnh quá dài.";
+  if (input.volume === null || input.volume <= 0) return "Khối lượng không hợp lệ (phải lớn hơn 0).";
+  if (input.open_price === null || input.open_price < 0) return "Vui lòng nhập giá mở lệnh hợp lệ.";
+  if (!input.open_time) return "Vui lòng nhập thời gian mở lệnh.";
+  if (Number.isNaN(new Date(input.open_time).getTime())) return "Thời gian mở lệnh không hợp lệ.";
+
+  const hasClosePrice = input.close_price !== null;
+  const hasCloseTime = Boolean(input.close_time);
+  if (hasClosePrice !== hasCloseTime) {
+    return "Cần điền đầy đủ cả Giá đóng và Thời gian đóng lệnh — hoặc để trống cả hai nếu lệnh đang chạy.";
+  }
+  if (hasClosePrice && input.close_price! < 0) return "Giá đóng lệnh không hợp lệ.";
+  if (hasCloseTime) {
+    const openMs = new Date(input.open_time).getTime();
+    const closeMs = new Date(input.close_time).getTime();
+    if (Number.isNaN(closeMs)) return "Thời gian đóng lệnh không hợp lệ.";
+    if (closeMs < openMs) return "Thời gian đóng lệnh phải sau thời gian mở lệnh.";
+  }
+  if (input.rr_ratio !== null && input.rr_ratio < 0) return "Tỷ lệ R:R không hợp lệ.";
+
+  return null;
 }
 
 export async function createTrade(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const input = parseTradeInput(formData);
+  const validationError = validateTradeInput(input);
+  if (validationError) return { error: validationError };
 
-  if (!input.account_id) return { error: "Vui lòng chọn tài khoản giao dịch." };
-  if (!input.symbol) return { error: "Vui lòng nhập cặp tiền/tài sản." };
-  if (input.volume === null || input.volume <= 0) return { error: "Khối lượng không hợp lệ." };
-  if (input.open_price === null) return { error: "Vui lòng nhập giá mở lệnh." };
-  if (!input.open_time) return { error: "Vui lòng nhập thời gian mở lệnh." };
+  const status = input.close_price !== null && input.close_time ? "CLOSED" : "OPEN";
 
   const supabase = await createClient();
   const {
@@ -70,7 +97,7 @@ export async function createTrade(_prev: ActionState, formData: FormData): Promi
 
   const { data: trade, error } = await supabase
     .from("trades")
-    .insert({ ...input, user_id: user.id, source: "manual" })
+    .insert({ ...input, status, user_id: user.id, source: "manual" })
     .select("id")
     .single();
 
@@ -85,16 +112,15 @@ export async function createTrade(_prev: ActionState, formData: FormData): Promi
 export async function updateTrade(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const id = String(formData.get("id") ?? "");
   if (!id) return { error: "Thiếu ID lệnh." };
-  const input = parseTradeInput(formData);
 
-  if (!input.account_id) return { error: "Vui lòng chọn tài khoản giao dịch." };
-  if (!input.symbol) return { error: "Vui lòng nhập cặp tiền/tài sản." };
-  if (input.volume === null || input.volume <= 0) return { error: "Khối lượng không hợp lệ." };
-  if (input.open_price === null) return { error: "Vui lòng nhập giá mở lệnh." };
-  if (!input.open_time) return { error: "Vui lòng nhập thời gian mở lệnh." };
+  const input = parseTradeInput(formData);
+  const validationError = validateTradeInput(input);
+  if (validationError) return { error: validationError };
+
+  const status = input.close_price !== null && input.close_time ? "CLOSED" : "OPEN";
 
   const supabase = await createClient();
-  const { error } = await supabase.from("trades").update(input).eq("id", id);
+  const { error } = await supabase.from("trades").update({ ...input, status }).eq("id", id);
   if (error) return { error: error.message };
 
   revalidatePath("/trades");

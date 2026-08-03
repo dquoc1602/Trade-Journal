@@ -1,15 +1,18 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import type { DailyNote } from "@/lib/types";
 import { EMOTIONS, MARKET_TRENDS } from "@/lib/constants";
 import { deleteNote, saveNote, type ActionState } from "@/app/(app)/notes/actions";
+import { useFormSuccessFlash } from "@/lib/useFormSuccessFlash";
+import { Spinner } from "@/components/Spinner";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
     <button type="submit" className="btn-primary w-full" disabled={pending}>
+      {pending && <Spinner />}
       {pending ? "Đang lưu..." : "Lưu Nhật ký ngày"}
     </button>
   );
@@ -25,7 +28,24 @@ export function NotesManager({ notes }: { notes: DailyNote[] }) {
   const [state, formAction] = useFormState<ActionState, FormData>(saveNote, { error: null });
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [pickedDate, setPickedDate] = useState<string>(editing?.note_date ?? todayStr());
   const formRef = useRef<HTMLFormElement>(null);
+  const savedFlash = useFormSuccessFlash(state, () => {
+    setEditing(null);
+    setPickedDate(todayStr());
+  });
+
+  const noteDates = useMemo(() => new Set(notes.map((n) => n.note_date)), [notes]);
+  const overwriteWarning =
+    !editing && pickedDate && noteDates.has(pickedDate)
+      ? "Ngày này đã có nhật ký — lưu sẽ ghi đè nội dung cũ."
+      : null;
+
+  useEffect(() => {
+    if (!confirmId) return;
+    const t = setTimeout(() => setConfirmId(null), 4000);
+    return () => clearTimeout(t);
+  }, [confirmId]);
 
   async function handleDelete(id: string) {
     setDeletingId(id);
@@ -56,11 +76,19 @@ export function NotesManager({ notes }: { notes: DailyNote[] }) {
                   </div>
                 </div>
                 <div className="flex gap-2 shrink-0">
-                  <button className="btn-ghost text-xs" onClick={() => setEditing(n)}>
+                  <button
+                    className="btn-ghost text-xs"
+                    onClick={() => {
+                      setConfirmId(null);
+                      setEditing(n);
+                      setPickedDate(n.note_date);
+                    }}
+                  >
                     ✏️ Sửa
                   </button>
                   {confirmId === n.id ? (
                     <button className="btn-danger text-xs" disabled={deletingId === n.id} onClick={() => handleDelete(n.id)}>
+                      {deletingId === n.id && <Spinner tone="danger" className="mr-1" />}
                       {deletingId === n.id ? "..." : "Xác nhận?"}
                     </button>
                   ) : (
@@ -77,19 +105,22 @@ export function NotesManager({ notes }: { notes: DailyNote[] }) {
       </div>
 
       <div>
-        <form
-          ref={formRef}
-          action={async (fd) => {
-            await formAction(fd);
-            setEditing(null);
-          }}
-          className="card space-y-4 sticky top-6"
-        >
+        <form ref={formRef} action={formAction} className="card space-y-4 sticky top-6">
           <h3 className="font-semibold text-slate-100">{editing ? `Cập nhật nhật ký ${editing.note_date}` : "Viết Nhật ký hôm nay"}</h3>
 
           <div>
             <label htmlFor="note_date">Chọn Ngày</label>
-            <input id="note_date" name="note_date" type="date" required defaultValue={editing?.note_date ?? todayStr()} key={editing?.id ?? "new"} className="w-full" />
+            <input
+              id="note_date"
+              name="note_date"
+              type="date"
+              required
+              defaultValue={editing?.note_date ?? todayStr()}
+              onChange={(e) => setPickedDate(e.target.value)}
+              key={editing?.id ?? "new"}
+              className="w-full"
+            />
+            {overwriteWarning && <p className="text-xs text-amber-400 mt-1">⚠️ {overwriteWarning}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -129,11 +160,19 @@ export function NotesManager({ notes }: { notes: DailyNote[] }) {
           </div>
 
           {state.error && <p className="text-sm text-loss bg-loss/10 border border-loss/30 rounded-md px-3 py-2">{state.error}</p>}
+          {savedFlash && <p className="text-sm text-profit bg-profit/10 border border-profit/30 rounded-md px-3 py-2">✓ Đã lưu nhật ký</p>}
 
           <div className="flex gap-2">
             <SubmitButton />
             {editing && (
-              <button type="button" className="btn-secondary" onClick={() => setEditing(null)}>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
+                  setEditing(null);
+                  setPickedDate(todayStr());
+                }}
+              >
                 Hủy
               </button>
             )}

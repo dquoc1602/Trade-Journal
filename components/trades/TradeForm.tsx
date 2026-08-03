@@ -4,11 +4,14 @@ import { useFormState, useFormStatus } from "react-dom";
 import type { Trade, TradingAccount, Strategy } from "@/lib/types";
 import { EMOTIONS } from "@/lib/constants";
 import { createTrade, updateTrade, type ActionState } from "@/app/(app)/trades/actions";
+import { useFormSuccessFlash } from "@/lib/useFormSuccessFlash";
+import { Spinner } from "@/components/Spinner";
 
 function SubmitButton({ label, pendingLabel }: { label: string; pendingLabel: string }) {
   const { pending } = useFormStatus();
   return (
     <button type="submit" className="btn-primary" disabled={pending}>
+      {pending && <Spinner />}
       {pending ? pendingLabel : label}
     </button>
   );
@@ -26,18 +29,36 @@ export function TradeForm({
   accounts,
   strategies,
   onCancel,
+  onDone,
 }: {
   trade?: Trade;
   accounts: TradingAccount[];
   strategies: Strategy[];
   onCancel?: () => void;
+  onDone?: () => void;
 }) {
   const isEdit = Boolean(trade);
   const action = isEdit ? updateTrade : createTrade;
   const [state, formAction] = useFormState<ActionState, FormData>(action, { error: null });
+  // Chỉ áp dụng cho chế độ sửa: tạo mới sẽ redirect() sang trang chi tiết nên không cần callback này.
+  const savedFlash = useFormSuccessFlash(state, isEdit ? onDone : undefined);
+
+  // datetime-local trả về chuỗi không có timezone (VD "2026-08-01T14:30"), trình duyệt hiểu đây là
+  // giờ ĐỊA PHƯƠNG của người dùng. Nếu để nguyên chuỗi này gửi lên server rồi mới new Date() ở đó,
+  // Node sẽ hiểu theo giờ CỦA SERVER (Vercel chạy UTC) — sai lệch hàng giờ so với ý người dùng.
+  // Do đó phải tự quy đổi sang ISO UTC ngay tại trình duyệt trước khi gửi đi.
+  function withUtcConversion(formData: FormData) {
+    for (const field of ["open_time", "close_time"]) {
+      const raw = formData.get(field);
+      if (typeof raw === "string" && raw) {
+        formData.set(field, new Date(raw).toISOString());
+      }
+    }
+    return formAction(formData);
+  }
 
   return (
-    <form action={formAction} className="card space-y-4 max-w-2xl">
+    <form action={withUtcConversion} className="card space-y-4 max-w-2xl">
       {isEdit && <input type="hidden" name="id" value={trade!.id} />}
 
       <div className="grid sm:grid-cols-2 gap-4">
@@ -67,18 +88,18 @@ export function TradeForm({
         </div>
         <div>
           <label htmlFor="volume">Khối lượng (Lots/Units) *</label>
-          <input id="volume" name="volume" type="number" step="0.01" required defaultValue={trade?.volume} placeholder="e.g. 1.00" className="w-full" />
+          <input id="volume" name="volume" type="number" step="0.01" min="0.01" required defaultValue={trade?.volume} placeholder="e.g. 1.00" className="w-full" />
         </div>
       </div>
 
       <div className="grid sm:grid-cols-2 gap-4">
         <div>
           <label htmlFor="open_price">Mức giá mở (Open Price) *</label>
-          <input id="open_price" name="open_price" type="number" step="0.00001" required defaultValue={trade?.open_price} placeholder="e.g. 1.0850" className="w-full" />
+          <input id="open_price" name="open_price" type="number" step="0.00001" min="0" required defaultValue={trade?.open_price} placeholder="e.g. 1.0850" className="w-full" />
         </div>
         <div>
           <label htmlFor="close_price">Mức giá đóng (để trống nếu lệnh đang chạy)</label>
-          <input id="close_price" name="close_price" type="number" step="0.00001" defaultValue={trade?.close_price ?? ""} placeholder="e.g. 1.0950" className="w-full" />
+          <input id="close_price" name="close_price" type="number" step="0.00001" min="0" defaultValue={trade?.close_price ?? ""} placeholder="e.g. 1.0950" className="w-full" />
         </div>
       </div>
 
@@ -105,6 +126,10 @@ export function TradeForm({
           />
         </div>
       </div>
+      <p className="text-xs text-muted -mt-2">
+        Lưu ý: cần điền <strong>cả hai</strong> Giá đóng + Thời gian đóng để lệnh được tính là "Đã đóng"
+        (CLOSED). Nếu chỉ điền một trong hai, lệnh sẽ báo lỗi.
+      </p>
 
       <div className="grid sm:grid-cols-3 gap-4">
         <div>
@@ -145,7 +170,7 @@ export function TradeForm({
         </div>
         <div>
           <label htmlFor="rr_ratio">Tỷ lệ R:R</label>
-          <input id="rr_ratio" name="rr_ratio" type="number" step="0.1" defaultValue={trade?.rr_ratio ?? ""} placeholder="e.g. 2.5" className="w-full" />
+          <input id="rr_ratio" name="rr_ratio" type="number" step="0.1" min="0" defaultValue={trade?.rr_ratio ?? ""} placeholder="e.g. 2.5" className="w-full" />
         </div>
       </div>
 
@@ -160,6 +185,7 @@ export function TradeForm({
       </div>
 
       {state.error && <p className="text-sm text-loss bg-loss/10 border border-loss/30 rounded-md px-3 py-2">{state.error}</p>}
+      {savedFlash && <p className="text-sm text-profit bg-profit/10 border border-profit/30 rounded-md px-3 py-2">✓ Đã lưu thay đổi</p>}
 
       <div className="flex gap-2">
         <SubmitButton label={isEdit ? "Lưu thay đổi" : "Lưu Giao Dịch"} pendingLabel="Đang lưu..." />

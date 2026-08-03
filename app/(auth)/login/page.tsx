@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useFormState, useFormStatus } from "react-dom";
 import { login } from "../actions";
 import { APP_NAME } from "@/lib/constants";
+import { Spinner } from "@/components/Spinner";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
     <button type="submit" className="btn-primary w-full" disabled={pending}>
+      {pending && <Spinner />}
       {pending ? "Đang đăng nhập..." : "Đăng Nhập"}
     </button>
   );

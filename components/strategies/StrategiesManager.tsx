@@ -1,16 +1,19 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import type { Strategy } from "@/lib/types";
 import type { PerformanceSummary } from "@/lib/analytics";
 import { formatCurrency, formatPercent } from "@/lib/analytics";
 import { createStrategy, deleteStrategy, updateStrategy, type ActionState } from "@/app/(app)/strategies/actions";
+import { useFormSuccessFlash } from "@/lib/useFormSuccessFlash";
+import { Spinner } from "@/components/Spinner";
 
 function SubmitButton({ label, pendingLabel }: { label: string; pendingLabel: string }) {
   const { pending } = useFormStatus();
   return (
     <button type="submit" className="btn-primary" disabled={pending}>
+      {pending && <Spinner />}
       {pending ? pendingLabel : label}
     </button>
   );
@@ -21,6 +24,7 @@ function StrategyForm({ strategy, onDone }: { strategy?: Strategy; onDone?: () =
   const action = isEdit ? updateStrategy : createStrategy;
   const [state, formAction] = useFormState<ActionState, FormData>(action, { error: null });
   const formRef = useRef<HTMLFormElement>(null);
+  const savedFlash = useFormSuccessFlash(state, isEdit ? onDone : undefined);
   const defaultRules = strategy?.strategy_rules
     ?.slice()
     .sort((a, b) => a.position - b.position)
@@ -33,7 +37,6 @@ function StrategyForm({ strategy, onDone }: { strategy?: Strategy; onDone?: () =
       action={async (fd) => {
         await formAction(fd);
         if (!isEdit) formRef.current?.reset();
-        onDone?.();
       }}
       className="card space-y-4"
     >
@@ -46,6 +49,7 @@ function StrategyForm({ strategy, onDone }: { strategy?: Strategy; onDone?: () =
           id={`sname-${strategy?.id ?? "new"}`}
           name="name"
           required
+          maxLength={100}
           defaultValue={strategy?.name}
           placeholder="e.g. Breakout Retest / Trend Pullback"
           className="w-full"
@@ -85,9 +89,16 @@ function StrategyForm({ strategy, onDone }: { strategy?: Strategy; onDone?: () =
           placeholder={"Quy tắc 1: Không fomo nhồi lệnh\nQuy tắc 2: R:R tối thiểu 1:2\nQuy tắc 3: Có xác nhận cấu trúc HTF"}
           className="w-full font-mono text-xs"
         />
+        {isEdit && (
+          <p className="text-xs text-muted mt-1">
+            Sửa/thêm dòng thoải mái. Nếu <strong>xóa bớt dòng ở cuối</strong>, checklist của các lệnh cũ gắn
+            đúng quy tắc đó sẽ mất — các dòng còn giữ nguyên vị trí vẫn giữ lịch sử tick.
+          </p>
+        )}
       </div>
 
       {state.error && <p className="text-sm text-loss bg-loss/10 border border-loss/30 rounded-md px-3 py-2">{state.error}</p>}
+      {savedFlash && <p className="text-sm text-profit bg-profit/10 border border-profit/30 rounded-md px-3 py-2">✓ Đã lưu thay đổi</p>}
 
       <div className="flex gap-2">
         <SubmitButton label={isEdit ? "Lưu thay đổi" : "Lưu Chiến lược"} pendingLabel="Đang lưu..." />
@@ -111,6 +122,12 @@ export function StrategiesManager({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!confirmId) return;
+    const t = setTimeout(() => setConfirmId(null), 4000);
+    return () => clearTimeout(t);
+  }, [confirmId]);
 
   async function handleDelete(id: string) {
     setDeletingId(id);
@@ -139,11 +156,18 @@ export function StrategiesManager({
                   {s.description && <p className="text-sm text-muted mt-1">{s.description}</p>}
                 </div>
                 <div className="flex gap-2 shrink-0">
-                  <button className="btn-ghost text-xs" onClick={() => setEditingId(s.id)}>
+                  <button
+                    className="btn-ghost text-xs"
+                    onClick={() => {
+                      setConfirmId(null);
+                      setEditingId(s.id);
+                    }}
+                  >
                     ✏️ Sửa
                   </button>
                   {confirmId === s.id ? (
                     <button className="btn-danger text-xs" disabled={deletingId === s.id} onClick={() => handleDelete(s.id)}>
+                      {deletingId === s.id && <Spinner tone="danger" className="mr-1" />}
                       {deletingId === s.id ? "Đang xóa..." : "Xác nhận xóa?"}
                     </button>
                   ) : (

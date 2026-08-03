@@ -12,6 +12,10 @@ export async function saveNote(_prev: ActionState, formData: FormData): Promise<
   const content = String(formData.get("content") ?? "").trim() || null;
 
   if (!note_date) return { error: "Vui lòng chọn ngày." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(note_date) || Number.isNaN(new Date(note_date).getTime())) {
+    return { error: "Ngày không hợp lệ." };
+  }
+  if (content && content.length > 5000) return { error: "Nội dung nhật ký tối đa 5000 ký tự." };
 
   const supabase = await createClient();
   const {

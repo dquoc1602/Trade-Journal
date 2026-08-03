@@ -1,13 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Trade, TradingAccount, Strategy, StrategyRule } from "@/lib/types";
 import { emotionMeta } from "@/lib/constants";
 import { formatCurrency } from "@/lib/analytics";
 import { deleteTrade } from "@/app/(app)/trades/actions";
 import { TradeForm } from "./TradeForm";
 import { ChecklistEditor } from "./ChecklistEditor";
+import { Spinner } from "@/components/Spinner";
 
 export function TradeDetail({
   trade,
@@ -27,6 +28,14 @@ export function TradeDetail({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Nút xóa đã "vũ trang" (chờ bấm lần 2) sẽ tự tắt sau vài giây để tránh trường hợp
+  // người dùng lỡ tay bấm trúng lần 2 sau khi đã rời mắt khỏi màn hình.
+  useEffect(() => {
+    if (!confirmDelete) return;
+    const t = setTimeout(() => setConfirmDelete(false), 4000);
+    return () => clearTimeout(t);
+  }, [confirmDelete]);
+
   async function handleDelete() {
     setDeleting(true);
     await deleteTrade(trade.id);
@@ -37,7 +46,13 @@ export function TradeDetail({
     return (
       <div>
         <h2 className="text-lg font-semibold text-slate-100 mb-4">Chỉnh sửa lệnh {trade.symbol}</h2>
-        <TradeForm trade={trade} accounts={accounts} strategies={strategies} onCancel={() => setEditing(false)} />
+        <TradeForm
+          trade={trade}
+          accounts={accounts}
+          strategies={strategies}
+          onCancel={() => setEditing(false)}
+          onDone={() => setEditing(false)}
+        />
       </div>
     );
   }
@@ -67,11 +82,18 @@ export function TradeDetail({
         </div>
 
         <div className="flex gap-2 mt-4">
-          <button className="btn-secondary" onClick={() => setEditing(true)}>
+          <button
+            className="btn-secondary"
+            onClick={() => {
+              setConfirmDelete(false);
+              setEditing(true);
+            }}
+          >
             ✏️ Chỉnh sửa lệnh
           </button>
           {confirmDelete ? (
             <button className="btn-danger" disabled={deleting} onClick={handleDelete}>
+              {deleting && <Spinner tone="danger" className="mr-1.5" />}
               {deleting ? "Đang xóa..." : "Xác nhận xóa lệnh này?"}
             </button>
           ) : (

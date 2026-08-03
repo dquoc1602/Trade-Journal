@@ -9,7 +9,15 @@ function parseRules(raw: string): string[] {
   return raw
     .split("\n")
     .map((line) => line.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .slice(0, 30); // giới hạn hợp lý, checklist quá dài sẽ mất tác dụng khi thao tác thực tế
+}
+
+function validateStrategyBasics(name: string, rules: string[]): string | null {
+  if (!name) return "Vui lòng nhập tên chiến lược.";
+  if (name.length > 100) return "Tên chiến lược tối đa 100 ký tự.";
+  if (rules.some((r) => r.length > 500)) return "Mỗi quy tắc tối đa 500 ký tự.";
+  return null;
 }
 
 export async function createStrategy(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -18,7 +26,8 @@ export async function createStrategy(_prev: ActionState, formData: FormData): Pr
   const image_url = String(formData.get("image_url") ?? "").trim();
   const rules = parseRules(String(formData.get("rules") ?? ""));
 
-  if (!name) return { error: "Vui lòng nhập tên chiến lược." };
+  const validationError = validateStrategyBasics(name, rules);
+  if (validationError) return { error: validationError };
 
   const supabase = await createClient();
   const {
@@ -50,10 +59,11 @@ export async function updateStrategy(_prev: ActionState, formData: FormData): Pr
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
   const image_url = String(formData.get("image_url") ?? "").trim();
-  const rules = parseRules(String(formData.get("rules") ?? ""));
+  const newRules = parseRules(String(formData.get("rules") ?? ""));
 
   if (!id) return { error: "Thiếu ID chiến lược." };
-  if (!name) return { error: "Vui lòng nhập tên chiến lược." };
+  const validationError = validateStrategyBasics(name, newRules);
+  if (validationError) return { error: validationError };
 
   const supabase = await createClient();
 
@@ -63,15 +73,40 @@ export async function updateStrategy(_prev: ActionState, formData: FormData): Pr
     .eq("id", id);
   if (error) return { error: error.message };
 
-  // Thay toàn bộ rule cũ bằng danh sách mới nhập (đơn giản hoá — mất lịch sử tick cũ của rule bị xóa)
-  const { error: deleteError } = await supabase.from("strategy_rules").delete().eq("strategy_id", id);
-  if (deleteError) return { error: deleteError.message };
+  // Cập nhật danh sách rule theo VỊ TRÍ (position) thay vì xóa hết rồi tạo lại từ đầu.
+  // Cách này giữ nguyên `id` của các rule không đổi vị trí, nhờ đó KHÔNG xóa mất lịch sử
+  // tick checklist (trade_rule_checks) của các lệnh cũ đã chấm điểm kỷ luật theo rule đó.
+  const { data: existingRules, error: fetchError } = await supabase
+    .from("strategy_rules")
+    .select("id, position")
+    .eq("strategy_id", id)
+    .order("position", { ascending: true });
+  if (fetchError) return { error: fetchError.message };
 
-  if (rules.length > 0) {
-    const { error: insertError } = await supabase.from("strategy_rules").insert(
-      rules.map((content, index) => ({ strategy_id: id, content, position: index }))
-    );
-    if (insertError) return { error: insertError.message };
+  const existing = existingRules ?? [];
+  const maxLen = Math.max(existing.length, newRules.length);
+
+  for (let i = 0; i < maxLen; i++) {
+    if (i < newRules.length && i < existing.length) {
+      const { error: updateError } = await supabase
+        .from("strategy_rules")
+        .update({ content: newRules[i] })
+        .eq("id", existing[i].id);
+      if (updateError) return { error: updateError.message };
+    } else if (i < newRules.length) {
+      const { error: insertError } = await supabase
+        .from("strategy_rules")
+        .insert({ strategy_id: id, content: newRules[i], position: i });
+      if (insertError) return { error: insertError.message };
+    }
+  }
+
+  // Xóa các rule dư ở cuối (nếu danh sách mới ngắn hơn) — thực hiện SAU CÙNG để giảm rủi ro
+  // mất dữ liệu nếu bước update/insert phía trên gặp lỗi giữa chừng.
+  if (existing.length > newRules.length) {
+    const idsToDelete = existing.slice(newRules.length).map((r) => r.id);
+    const { error: deleteError } = await supabase.from("strategy_rules").delete().in("id", idsToDelete);
+    if (deleteError) return { error: deleteError.message };
   }
 
   revalidatePath("/strategies");

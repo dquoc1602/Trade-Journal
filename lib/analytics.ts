@@ -2,20 +2,45 @@ import type { Trade } from "@/lib/types";
 import type { EmotionValue, SessionValue } from "@/lib/constants";
 
 /**
- * Phiên giao dịch được suy ra từ giờ VN (UTC+7) của open_time, không lưu trong DB.
+ * Toàn bộ tính toán ngày/giờ hiển thị (phiên, thứ, nhóm theo ngày lịch) trong app
+ * đều cố định theo giờ Việt Nam (UTC+7, không tính DST) thay vì dựa vào timezone
+ * của máy đang chạy code. Bắt buộc phải làm vậy vì hàm này chạy ở CẢ server
+ * (Vercel mặc định chạy giờ UTC) lẫn client (trình duyệt của người dùng ở VN) —
+ * nếu dùng Date.getHours()/getDay() "local" thông thường, kết quả sẽ khác nhau
+ * tuỳ nơi code chạy, gây sai lệch phiên/thứ khi lên production.
+ */
+const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+function toVnShiftedDate(isoTime: string): Date {
+  return new Date(new Date(isoTime).getTime() + VN_OFFSET_MS);
+}
+
+/**
+ * Phiên giao dịch suy ra từ giờ VN của open_time, không lưu trong DB.
  * Asia: 06:00-14:00 | London: 14:00-21:00 | NY AM: 21:00-24:00 | NY PM: 00:00-06:00
  */
 export function sessionFromTime(isoTime: string): SessionValue {
-  const d = new Date(isoTime);
-  const vnHour = (d.getUTCHours() + 7) % 24;
+  const vnHour = toVnShiftedDate(isoTime).getUTCHours();
   if (vnHour >= 6 && vnHour < 14) return "Asia";
   if (vnHour >= 14 && vnHour < 21) return "London";
-  if (vnHour >= 21 || vnHour < 0) return "NY_AM";
+  if (vnHour >= 21) return "NY_AM";
   return "NY_PM";
 }
 
+/** Thứ trong tuần theo giờ VN (0 = Chủ nhật ... 6 = Thứ 7), không phụ thuộc timezone máy chạy code. */
 export function weekdayFromTime(isoTime: string): number {
-  return new Date(isoTime).getDay(); // 0 = Sunday ... 6 = Saturday
+  return toVnShiftedDate(isoTime).getUTCDay();
+}
+
+/** Mã ngày lịch YYYY-MM-DD theo giờ VN — dùng để nhóm lệnh theo ngày (Calendar) nhất quán server/client. */
+export function vnDateKey(isoTime: string): string {
+  const d = toVnShiftedDate(isoTime);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+}
+
+/** Trả về Date UTC tương ứng với 00:00 giờ VN của ngày `day` tháng `month` (1-12) năm `year`. */
+export function vnMidnightUtc(year: number, month: number, day: number): Date {
+  return new Date(Date.UTC(year, month - 1, day, 0, 0, 0) - VN_OFFSET_MS);
 }
 
 export function isWin(trade: Trade): boolean {
