@@ -183,6 +183,86 @@ export function currentDisciplineStreak(
   return streak;
 }
 
+export type DayPnl = { date: string; pnl: number; tradeCount: number };
+
+/** Nhóm lệnh đã đóng theo ngày lịch VN (dùng cho tổng tuần trên Calendar và các thống kê theo-ngày ở trang chi tiết tài khoản). */
+export function groupByVnDay(trades: Trade[]): DayPnl[] {
+  const map = new Map<string, { pnl: number; count: number }>();
+  for (const t of trades) {
+    if (!isClosed(t) || !t.close_time) continue;
+    const key = vnDateKey(t.close_time);
+    const cur = map.get(key) ?? { pnl: 0, count: 0 };
+    cur.pnl += t.pnl;
+    cur.count += 1;
+    map.set(key, cur);
+  }
+  return Array.from(map.entries())
+    .map(([date, v]) => ({ date, pnl: v.pnl, tradeCount: v.count }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+export type AccountStats = {
+  dayWinRate: number | null; // % số ngày lãi / tổng số ngày có lệnh đóng
+  avgWin: number;
+  avgLoss: number; // số âm
+  bestDay: DayPnl | null;
+  bestDayPct: number | null; // P&L ngày lãi nhất / tổng lãi các ngày dương, tính theo %
+};
+
+export function computeAccountStats(trades: Trade[]): AccountStats {
+  const closed = trades.filter(isClosed);
+  const wins = closed.filter(isWin);
+  const losses = closed.filter((t) => t.pnl < 0);
+  const avgWin = wins.length ? wins.reduce((s, t) => s + t.pnl, 0) / wins.length : 0;
+  const avgLoss = losses.length ? losses.reduce((s, t) => s + t.pnl, 0) / losses.length : 0;
+
+  const days = groupByVnDay(closed);
+  const greenDays = days.filter((d) => d.pnl > 0).length;
+  const dayWinRate = days.length ? (greenDays / days.length) * 100 : null;
+
+  let bestDay: DayPnl | null = null;
+  for (const d of days) {
+    if (!bestDay || d.pnl > bestDay.pnl) bestDay = d;
+  }
+  const totalPositiveDaysPnl = days.filter((d) => d.pnl > 0).reduce((s, d) => s + d.pnl, 0);
+  const bestDayPct = bestDay && bestDay.pnl > 0 && totalPositiveDaysPnl > 0 ? (bestDay.pnl / totalPositiveDaysPnl) * 100 : null;
+
+  return { dayWinRate, avgWin, avgLoss, bestDay, bestDayPct };
+}
+
+export type BalancePoint = { date: string; balance: number };
+
+/**
+ * Chuỗi số dư cuối mỗi ngày trong khoảng lệnh truyền vào, dựng NGƯỢC từ số dư hiện tại
+ * (`endingBalance`, đã được trigger DB tự cộng/trừ theo mọi lệnh) trừ đi tổng P&L của
+ * đúng tập lệnh này để ra số dư mốc trước ngày đầu tiên, rồi cộng dồn xuôi theo từng ngày.
+ */
+export function buildDailyBalanceSeries(trades: Trade[], endingBalance: number): BalancePoint[] {
+  const days = groupByVnDay(trades);
+  const totalPnl = days.reduce((s, d) => s + d.pnl, 0);
+  let running = endingBalance - totalPnl;
+  return days.map((d) => {
+    running += d.pnl;
+    return { date: d.date, balance: running };
+  });
+}
+
+/** Thời gian giữ lệnh, hiển thị gọn dạng "1n 2h 15p" — dùng cho bảng lệnh chi tiết ở trang tài khoản. */
+export function formatDuration(openIso: string, closeIso: string | null): string {
+  if (!closeIso) return "—";
+  const ms = new Date(closeIso).getTime() - new Date(openIso).getTime();
+  if (!(ms > 0)) return "—";
+  const totalMinutes = Math.round(ms / 60000);
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+  const parts: string[] = [];
+  if (days) parts.push(`${days}n`);
+  if (hours) parts.push(`${hours}h`);
+  if (minutes || parts.length === 0) parts.push(`${minutes}p`);
+  return parts.join(" ");
+}
+
 export function formatCurrency(value: number, currency = "USD"): string {
   const sign = value >= 0 ? "+" : "";
   return `${sign}${value.toLocaleString("en-US", { style: "currency", currency, maximumFractionDigits: 2 })}`;

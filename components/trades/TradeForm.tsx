@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import type { Trade, TradingAccount, Strategy } from "@/lib/types";
 import { EMOTIONS } from "@/lib/constants";
 import { createTrade, updateTrade, type ActionState } from "@/app/(app)/trades/actions";
 import { useFormSuccessFlash } from "@/lib/useFormSuccessFlash";
 import { Spinner } from "@/components/Spinner";
+import { parseFlexibleDateTimeToIso, formatDateTimeForInput, DATETIME_INPUT_PLACEHOLDER } from "@/lib/dateInput";
 
 function SubmitButton({ label, pendingLabel }: { label: string; pendingLabel: string }) {
   const { pending } = useFormStatus();
@@ -15,13 +17,6 @@ function SubmitButton({ label, pendingLabel }: { label: string; pendingLabel: st
       {pending ? pendingLabel : label}
     </button>
   );
-}
-
-function toLocalInputValue(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 export function TradeForm({
@@ -42,17 +37,26 @@ export function TradeForm({
   const [state, formAction] = useFormState<ActionState, FormData>(action, { error: null });
   // Chỉ áp dụng cho chế độ sửa: tạo mới sẽ redirect() sang trang chi tiết nên không cần callback này.
   const savedFlash = useFormSuccessFlash(state, isEdit ? onDone : undefined);
+  const [clientError, setClientError] = useState<string | null>(null);
 
-  // datetime-local trả về chuỗi không có timezone (VD "2026-08-01T14:30"), trình duyệt hiểu đây là
-  // giờ ĐỊA PHƯƠNG của người dùng. Nếu để nguyên chuỗi này gửi lên server rồi mới new Date() ở đó,
-  // Node sẽ hiểu theo giờ CỦA SERVER (Vercel chạy UTC) — sai lệch hàng giờ so với ý người dùng.
-  // Do đó phải tự quy đổi sang ISO UTC ngay tại trình duyệt trước khi gửi đi.
+  // Ô giờ là TEXT tự do để người dùng dán thẳng timestamp copy từ platform (VD "2026-08-05 20:32:44.855").
+  // Parse ở đây (trong trình duyệt, biết đúng giờ địa phương thật của người dùng) rồi quy đổi sang ISO UTC
+  // trước khi gửi lên server — không để server tự new Date() vì server (Vercel) chạy giờ UTC.
   function withUtcConversion(formData: FormData) {
-    for (const field of ["open_time", "close_time"]) {
-      const raw = formData.get(field);
-      if (typeof raw === "string" && raw) {
-        formData.set(field, new Date(raw).toISOString());
+    setClientError(null);
+    const fieldLabels: Record<string, string> = { open_time: "Thời gian mở lệnh", close_time: "Thời gian đóng lệnh" };
+    for (const field of ["open_time", "close_time"] as const) {
+      const raw = String(formData.get(field) ?? "").trim();
+      if (!raw) {
+        formData.set(field, "");
+        continue;
       }
+      const iso = parseFlexibleDateTimeToIso(raw);
+      if (!iso) {
+        setClientError(`${fieldLabels[field]} không đúng định dạng. Dùng ${DATETIME_INPUT_PLACEHOLDER}`);
+        return;
+      }
+      formData.set(field, iso);
     }
     return formAction(formData);
   }
@@ -68,6 +72,7 @@ export function TradeForm({
             {accounts.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.account_type === "prop_firm" ? "🏆" : "📈"} {a.name}
+                {a.is_disabled ? " (Đã Disabled)" : ""}
               </option>
             ))}
           </select>
@@ -109,10 +114,12 @@ export function TradeForm({
           <input
             id="open_time"
             name="open_time"
-            type="datetime-local"
+            type="text"
             required
-            defaultValue={toLocalInputValue(trade?.open_time ?? null)}
-            className="w-full"
+            inputMode="numeric"
+            placeholder={DATETIME_INPUT_PLACEHOLDER}
+            defaultValue={formatDateTimeForInput(trade?.open_time ?? null)}
+            className="w-full font-mono text-sm"
           />
         </div>
         <div>
@@ -120,15 +127,18 @@ export function TradeForm({
           <input
             id="close_time"
             name="close_time"
-            type="datetime-local"
-            defaultValue={toLocalInputValue(trade?.close_time ?? null)}
-            className="w-full"
+            type="text"
+            inputMode="numeric"
+            placeholder={DATETIME_INPUT_PLACEHOLDER}
+            defaultValue={formatDateTimeForInput(trade?.close_time ?? null)}
+            className="w-full font-mono text-sm"
           />
         </div>
       </div>
       <p className="text-xs text-muted -mt-2">
-        Lưu ý: cần điền <strong>cả hai</strong> Giá đóng + Thời gian đóng để lệnh được tính là "Đã đóng"
-        (CLOSED). Nếu chỉ điền một trong hai, lệnh sẽ báo lỗi.
+        Dán trực tiếp giờ copy từ platform (VD <code>2026-08-05 20:32:44.855</code>) hoặc gõ tay theo định dạng{" "}
+        <code>YYYY-MM-DD HH:MM:SS</code>. Cần điền <strong>cả hai</strong> Giá đóng + Thời gian đóng để lệnh được tính
+        là "Đã đóng" (CLOSED). Nếu chỉ điền một trong hai, lệnh sẽ báo lỗi.
       </p>
 
       <div className="grid sm:grid-cols-3 gap-4">
@@ -184,7 +194,9 @@ export function TradeForm({
         <textarea id="notes" name="notes" rows={3} defaultValue={trade?.notes ?? ""} className="w-full" />
       </div>
 
-      {state.error && <p className="text-sm text-loss bg-loss/10 border border-loss/30 rounded-md px-3 py-2">{state.error}</p>}
+      {(clientError || state.error) && (
+        <p className="text-sm text-loss bg-loss/10 border border-loss/30 rounded-md px-3 py-2">{clientError || state.error}</p>
+      )}
       {savedFlash && <p className="text-sm text-profit bg-profit/10 border border-profit/30 rounded-md px-3 py-2">✓ Đã lưu thay đổi</p>}
 
       <div className="flex gap-2">

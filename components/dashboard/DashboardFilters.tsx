@@ -44,6 +44,7 @@ export function DashboardFilters({ accounts }: { accounts: TradingAccount[] }) {
         {accounts.map((a) => (
           <option key={a.id} value={a.id}>
             {a.account_type === "prop_firm" ? "🏆" : "📈"} {a.name}
+            {a.is_disabled ? " (Đã Disabled)" : ""}
           </option>
         ))}
       </select>

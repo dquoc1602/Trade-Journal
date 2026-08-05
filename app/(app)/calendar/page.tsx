@@ -30,10 +30,21 @@ export default async function CalendarPage({
 
   if (params.accountId) query = query.eq("account_id", params.accountId);
 
-  const [{ data: trades }, { data: accounts }] = await Promise.all([
+  // Khoảng ngày lịch (note_date là cột date thuần, không phải timestamp) tính theo year/month đang xem —
+  // KHÔNG lấy lại từ monthStart/monthEnd vì 2 mốc đó là timestamp UTC của nửa đêm giờ VN, có thể lùi
+  // sang ngày UTC hôm trước và làm sai lệch tháng khi convert ngược lại.
+  const noteMonthStart = `${year}-${String(month).padStart(2, "0")}-01`;
+  const nextMonthYear = month === 12 ? year + 1 : year;
+  const nextMonthNum = month === 12 ? 1 : month + 1;
+  const noteMonthEnd = `${nextMonthYear}-${String(nextMonthNum).padStart(2, "0")}-01`;
+
+  const [{ data: trades }, { data: accounts }, { data: notes }] = await Promise.all([
     query,
     supabase.from("trading_accounts").select("*").order("created_at", { ascending: true }),
+    supabase.from("daily_notes").select("note_date").gte("note_date", noteMonthStart).lt("note_date", noteMonthEnd),
   ]);
+
+  const noteDates = Array.from(new Set(((notes as { note_date: string }[]) ?? []).map((n) => n.note_date)));
 
   return (
     <div>
@@ -47,6 +58,8 @@ export default async function CalendarPage({
         month={month}
         trades={(trades as Trade[]) ?? []}
         accounts={(accounts as TradingAccount[]) ?? []}
+        noteDates={noteDates}
+        showAccountLabels={!params.accountId}
       />
     </div>
   );

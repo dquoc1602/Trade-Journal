@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useFormState, useFormStatus } from "react-dom";
 import type { TradingAccount } from "@/lib/types";
 import { ACCOUNT_TYPES, ASSET_CLASSES, CURRENCIES, PROP_FIRMS, propFirmById } from "@/lib/constants";
@@ -204,6 +205,14 @@ function AccountForm({
         này — không cần tự tay cập nhật lại.
       </p>
 
+      <label className="flex items-center gap-2 text-sm text-slate-200 cursor-pointer">
+        <input type="checkbox" name="is_disabled" defaultChecked={account?.is_disabled ?? false} className="w-auto" />
+        🔥 Đánh dấu Disabled / Cháy tài khoản
+      </label>
+      <p className="text-xs text-muted -mt-2">
+        Chỉ là nhãn cảnh báo hiển thị — tài khoản vẫn chọn được bình thường ở mọi nơi (VD khi ghi lệnh mới).
+      </p>
+
       {state.error && <p className="text-sm text-loss bg-loss/10 border border-loss/30 rounded-md px-3 py-2">{state.error}</p>}
       {savedFlash && <p className="text-sm text-profit bg-profit/10 border border-profit/30 rounded-md px-3 py-2">✓ Đã lưu thay đổi</p>}
 
@@ -260,6 +269,11 @@ export function AccountsManager({ accounts }: { accounts: TradingAccount[] }) {
                     <span className="ml-1 text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-primary/15 text-primary align-middle">
                       {ASSET_CLASSES.find((a) => a.value === acc.asset_class)?.label ?? acc.asset_class}
                     </span>
+                    {acc.is_disabled && (
+                      <span className="ml-1 text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-loss/15 text-loss align-middle">
+                        🔥 Disabled
+                      </span>
+                    )}
                   </div>
                   <div className="text-xs text-muted mt-1">
                     Broker: {acc.broker || "—"}
@@ -269,7 +283,11 @@ export function AccountsManager({ accounts }: { accounts: TradingAccount[] }) {
                     Số dư: {acc.balance.toLocaleString("en-US", { style: "currency", currency: acc.currency })}
                   </div>
                 </div>
-                <div className="flex gap-2 shrink-0">
+                <div className="flex flex-col gap-2 shrink-0 items-end">
+                  <Link href={`/accounts/${acc.id}`} className="btn-secondary text-xs">
+                    📊 Chi tiết
+                  </Link>
+                  <div className="flex gap-2">
                   <button
                     className="btn-ghost text-xs"
                     onClick={() => {
@@ -293,6 +311,7 @@ export function AccountsManager({ accounts }: { accounts: TradingAccount[] }) {
                       🗑️ Xóa
                     </button>
                   )}
+                  </div>
                 </div>
               </div>
             </div>

@@ -14,6 +14,7 @@ function parseAccountInput(formData: FormData) {
   const currency = String(formData.get("currency") ?? "USD");
   const balanceRaw = String(formData.get("balance") ?? "0");
   const balance = balanceRaw ? Number(balanceRaw) : 0;
+  const is_disabled = formData.get("is_disabled") === "on";
 
   return {
     name,
@@ -23,6 +24,7 @@ function parseAccountInput(formData: FormData) {
     asset_class,
     currency,
     balance,
+    is_disabled,
   };
 }
 

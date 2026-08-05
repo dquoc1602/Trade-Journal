@@ -10,6 +10,7 @@ export type TradingAccount = {
   asset_class: AssetClassValue;
   currency: string;
   balance: number;
+  is_disabled: boolean;
   created_at: string;
   updated_at: string;
 };

@@ -45,6 +45,9 @@ export function TradeDetail({
   if (editing) {
     return (
       <div>
+        <button type="button" onClick={() => router.back()} className="btn-ghost text-xs mb-3">
+          ← Quay lại
+        </button>
         <h2 className="text-lg font-semibold text-slate-100 mb-4">Chỉnh sửa lệnh {trade.symbol}</h2>
         <TradeForm
           trade={trade}
@@ -61,6 +64,9 @@ export function TradeDetail({
 
   return (
     <div className="space-y-6">
+      <button type="button" onClick={() => router.back()} className="btn-ghost text-xs -mb-2">
+        ← Quay lại
+      </button>
       <div className="card">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>

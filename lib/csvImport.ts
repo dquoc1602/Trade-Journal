@@ -1,4 +1,5 @@
 import { EMOTIONS, TRADE_SIDES } from "@/lib/constants";
+import { parseFlexibleDateTime } from "@/lib/dateInput";
 
 export const CSV_TEMPLATE_HEADERS = [
   "symbol",
@@ -17,8 +18,8 @@ export const CSV_TEMPLATE_HEADERS = [
 ] as const;
 
 export const CSV_TEMPLATE_EXAMPLE = `symbol,side,volume,open_price,close_price,open_time,close_time,gross_profit,commission,swap,emotion,rr_ratio,notes
-EURUSD,BUY,1,1.0850,1.0900,2026-07-01 14:30,2026-07-01 16:00,500,-7,-1.5,Confident,2.5,Theo đúng kế hoạch
-XAUUSD,SELL,0.5,2410.00,2399.50,2026-07-02 09:15,2026-07-02 10:45,525,-6,0,Calm,3,`;
+EURUSD,BUY,1,1.0850,1.0900,2026-07-01 14:30:00.000,2026-07-01 16:00:12.500,500,-7,-1.5,Confident,2.5,Theo đúng kế hoạch
+XAUUSD,SELL,0.5,2410.00,2399.50,2026-07-02 09:15:44.855,2026-07-02 10:45:00.000,525,-6,0,Calm,3,`;
 
 export type CsvParsedRow = {
   index: number;
@@ -127,8 +128,9 @@ export function validateCsvRow(row: CsvParsedRow): string | null {
   if (!row.open_price || Number.isNaN(openPrice) || openPrice < 0) return "open_price không hợp lệ";
 
   if (!row.open_time) return "Thiếu open_time";
-  const openMs = new Date(row.open_time).getTime();
-  if (Number.isNaN(openMs)) return "open_time không đọc được (dùng định dạng YYYY-MM-DD HH:MM)";
+  const openDate = parseFlexibleDateTime(row.open_time);
+  if (!openDate) return "open_time không đọc được (dùng định dạng YYYY-MM-DD HH:MM:SS.mmm)";
+  const openMs = openDate.getTime();
 
   const hasClosePrice = row.close_price.trim() !== "";
   const hasCloseTime = row.close_time.trim() !== "";
@@ -137,9 +139,9 @@ export function validateCsvRow(row: CsvParsedRow): string | null {
   if (hasClosePrice) {
     const closePrice = Number(row.close_price);
     if (Number.isNaN(closePrice) || closePrice < 0) return "close_price không hợp lệ";
-    const closeMs = new Date(row.close_time).getTime();
-    if (Number.isNaN(closeMs)) return "close_time không đọc được";
-    if (closeMs < openMs) return "close_time phải sau open_time";
+    const closeDate = parseFlexibleDateTime(row.close_time);
+    if (!closeDate) return "close_time không đọc được (dùng định dạng YYYY-MM-DD HH:MM:SS.mmm)";
+    if (closeDate.getTime() < openMs) return "close_time phải sau open_time";
   }
 
   if (row.gross_profit && Number.isNaN(Number(row.gross_profit))) return "gross_profit không hợp lệ";

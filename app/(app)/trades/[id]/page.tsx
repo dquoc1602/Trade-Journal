@@ -31,12 +31,13 @@ export default async function TradeDetailPage({ params }: { params: { id: string
   }
 
   // Nhật ký ngày liên kết theo ngày ĐÓNG lệnh (nếu đang chạy thì theo ngày MỞ lệnh), tính theo giờ VN.
+  // 1 ngày có thể có nhiều nhật ký nên lấy về danh sách, sắp theo thời điểm lưu.
   const noteDate = vnDateKey(trade.close_time ?? trade.open_time);
-  const { data: linkedNote } = await supabase
+  const { data: linkedNotes } = await supabase
     .from("daily_notes")
     .select("*")
     .eq("note_date", noteDate)
-    .maybeSingle();
+    .order("created_at", { ascending: true });
 
   return (
     <div>
@@ -49,7 +50,7 @@ export default async function TradeDetailPage({ params }: { params: { id: string
           strategyRules={strategyRules}
           checkedMap={checkedMap}
         />
-        <LinkedDailyNote date={noteDate} note={(linkedNote as DailyNote) ?? null} />
+        <LinkedDailyNote date={noteDate} notes={(linkedNotes as DailyNote[]) ?? []} />
       </div>
     </div>
   );

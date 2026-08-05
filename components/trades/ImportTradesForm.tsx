@@ -6,6 +6,7 @@ import type { TradingAccount, Strategy } from "@/lib/types";
 import { CSV_TEMPLATE_EXAMPLE, parseCsvText, validateCsvRow, type CsvParsedRow } from "@/lib/csvImport";
 import { bulkImportTrades, type BulkImportRow } from "@/app/(app)/trades/actions";
 import { Spinner } from "@/components/Spinner";
+import { parseFlexibleDateTimeToIso } from "@/lib/dateInput";
 
 export function ImportTradesForm({ accounts, strategies }: { accounts: TradingAccount[]; strategies: Strategy[] }) {
   const router = useRouter();
@@ -51,8 +52,8 @@ export function ImportTradesForm({ accounts, strategies }: { accounts: TradingAc
       volume: Number(r.volume),
       open_price: Number(r.open_price),
       close_price: r.close_price.trim() ? Number(r.close_price) : null,
-      open_time: new Date(r.open_time).toISOString(),
-      close_time: r.close_time.trim() ? new Date(r.close_time).toISOString() : null,
+      open_time: parseFlexibleDateTimeToIso(r.open_time)!,
+      close_time: r.close_time.trim() ? parseFlexibleDateTimeToIso(r.close_time) : null,
       gross_profit: r.gross_profit.trim() ? Number(r.gross_profit) : 0,
       commission: r.commission.trim() ? Number(r.commission) : 0,
       swap: r.swap.trim() ? Number(r.swap) : 0,
@@ -84,6 +85,7 @@ export function ImportTradesForm({ accounts, strategies }: { accounts: TradingAc
               {accounts.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.account_type === "prop_firm" ? "🏆" : "📈"} {a.name}
+                  {a.is_disabled ? " (Đã Disabled)" : ""}
                 </option>
               ))}
             </select>
@@ -127,7 +129,10 @@ export function ImportTradesForm({ accounts, strategies }: { accounts: TradingAc
           <pre className="mt-2 bg-surface2 rounded-md p-3 overflow-x-auto whitespace-pre">{CSV_TEMPLATE_EXAMPLE}</pre>
           <ul className="list-disc list-inside mt-2 space-y-0.5">
             <li>Cột bắt buộc: <code>symbol, side, volume, open_price, open_time</code></li>
-            <li>Thời gian dùng định dạng <code>YYYY-MM-DD HH:MM</code> theo giờ địa phương máy bạn.</li>
+            <li>
+              Thời gian dùng định dạng <code>YYYY-MM-DD HH:MM:SS.mmm</code> (giây/mili-giây tuỳ chọn) theo giờ địa
+              phương máy bạn — dán thẳng được từ platform.
+            </li>
             <li>Cần điền đủ cả <code>close_price</code> + <code>close_time</code>, hoặc để trống cả hai (lệnh đang chạy).</li>
             <li><code>emotion</code> (nếu có) phải là 1 trong: Calm, Focused, Confident, Neutral, Anxious, Fear, FOMO, Greedy, Revenge.</li>
           </ul>

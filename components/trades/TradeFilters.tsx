@@ -45,6 +45,7 @@ export function TradeFilters({ accounts, strategies }: { accounts: TradingAccoun
             {accounts.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.name}
+                {a.is_disabled ? " (Đã Disabled)" : ""}
               </option>
             ))}
           </select>
