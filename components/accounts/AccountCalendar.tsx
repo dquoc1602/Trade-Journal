@@ -83,7 +83,7 @@ export function AccountCalendar({ trades }: { trades: Trade[] }) {
             <button
               key={key}
               onClick={() => setSelected(isSelected ? null : key)}
-              className={`aspect-square rounded border p-1 text-left text-[10px] transition-colors ${
+              className={`min-h-[2.75rem] rounded border p-1 text-left text-[10px] transition-colors ${
                 isSelected ? "border-primary" : "border-border"
               } ${hasTrades ? (dayPnl >= 0 ? "bg-profit/10 hover:bg-profit/20" : "bg-loss/10 hover:bg-loss/20") : "hover:bg-surface2"}`}
             >

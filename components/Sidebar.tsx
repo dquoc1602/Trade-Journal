@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
 import { APP_NAME } from "@/lib/constants";
-import { logout } from "@/app/(auth)/actions";
+import { UserMenu } from "@/components/UserMenu";
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: "📊" },
@@ -15,7 +15,6 @@ const NAV_ITEMS = [
   { href: "/notes", label: "Nhật ký ngày", icon: "📝" },
   { href: "/accounts", label: "Tài khoản giao dịch", icon: "🏦" },
   { href: "/knowledge", label: "Kiến thức ICT", icon: "📚" },
-  { href: "/profile", label: "Hồ sơ cá nhân", icon: "👤" },
 ];
 
 export function Sidebar({ email }: { email: string }) {
@@ -94,16 +93,7 @@ export function Sidebar({ email }: { email: string }) {
           })}
         </nav>
 
-        <div className="px-3 py-4 border-t border-border">
-          <div className="px-3 py-2 text-xs text-muted truncate" title={email}>
-            {email}
-          </div>
-          <form action={logout}>
-            <button type="submit" className="btn-ghost w-full justify-start px-3">
-              🚪 Đăng xuất
-            </button>
-          </form>
-        </div>
+        <UserMenu email={email} />
       </aside>
     </>
   );

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getUserSettings } from "@/lib/userSettings";
 import { PageHeader } from "@/components/PageHeader";
 import { KpiCard } from "@/components/KpiCard";
 import { DashboardFilters } from "@/components/dashboard/DashboardFilters";
@@ -38,6 +39,8 @@ export default async function DashboardPage({
 }) {
   const params = searchParams;
   const supabase = await createClient();
+  const settings = await getUserSettings(supabase);
+  const effectiveRange = params.range ?? settings.dashboard_default_range;
 
   let query = supabase
     .from("trades")
@@ -46,12 +49,12 @@ export default async function DashboardPage({
 
   if (params.accountId) query = query.eq("account_id", params.accountId);
 
-  const cutoff = rangeCutoff(params.range);
+  const cutoff = rangeCutoff(effectiveRange);
   if (cutoff) query = query.gte("open_time", cutoff.toISOString());
 
   const [{ data: tradesRaw }, { data: accounts }] = await Promise.all([
     query,
-    supabase.from("trading_accounts").select("*").order("created_at", { ascending: true }),
+    supabase.from("trading_accounts").select("*").order("created_at", { ascending: false }),
   ]);
 
   const trades = (tradesRaw as Trade[]) ?? [];
@@ -101,7 +104,7 @@ export default async function DashboardPage({
       <PageHeader
         title="Tổng quan Giao dịch"
         description="Chào mừng quay trở lại. Đây là phân tích tài khoản của bạn."
-        action={<DashboardFilters accounts={accountList} />}
+        action={<DashboardFilters accounts={accountList} defaultRange={settings.dashboard_default_range} />}
       />
 
       <div className="grid grid-cols-2 gap-4 mb-4">

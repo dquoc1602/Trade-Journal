@@ -1,19 +1,21 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getUserSettings } from "@/lib/userSettings";
 import { PageHeader } from "@/components/PageHeader";
 import { TradeDetail } from "@/components/trades/TradeDetail";
 import { LinkedDailyNote } from "@/components/trades/LinkedDailyNote";
-import { vnDateKey } from "@/lib/analytics";
+import { vnDateKey, vnMidnightUtc } from "@/lib/analytics";
 import type { Trade, TradingAccount, Strategy, StrategyRule, DailyNote } from "@/lib/types";
 
 export default async function TradeDetailPage({ params }: { params: { id: string } }) {
   const { id } = params;
   const supabase = await createClient();
 
-  const [{ data: trade }, { data: accounts }, { data: strategies }] = await Promise.all([
+  const [{ data: trade }, { data: accounts }, { data: strategies }, settings] = await Promise.all([
     supabase.from("trades").select("*, trading_accounts(id,name,account_type), strategies(id,name)").eq("id", id).single(),
-    supabase.from("trading_accounts").select("*").order("created_at", { ascending: true }),
+    supabase.from("trading_accounts").select("*").order("created_at", { ascending: false }),
     supabase.from("strategies").select("*").order("name", { ascending: true }),
+    getUserSettings(supabase),
   ]);
 
   if (!trade) notFound();
@@ -33,11 +35,21 @@ export default async function TradeDetailPage({ params }: { params: { id: string
   // Nhật ký ngày liên kết theo ngày ĐÓNG lệnh (nếu đang chạy thì theo ngày MỞ lệnh), tính theo giờ VN.
   // 1 ngày có thể có nhiều nhật ký nên lấy về danh sách, sắp theo thời điểm lưu.
   const noteDate = vnDateKey(trade.close_time ?? trade.open_time);
-  const { data: linkedNotes } = await supabase
-    .from("daily_notes")
-    .select("*")
-    .eq("note_date", noteDate)
-    .order("created_at", { ascending: true });
+  const [y, m, d] = noteDate.split("-").map(Number);
+  const dayStart = vnMidnightUtc(y, m, d);
+  const dayEnd = vnMidnightUtc(y, m, d + 1);
+
+  const [{ data: linkedNotes }, { data: sameDayTradesRaw }] = await Promise.all([
+    supabase.from("daily_notes").select("*").eq("note_date", noteDate).order("created_at", { ascending: true }),
+    supabase
+      .from("trades")
+      .select("*, trading_accounts(id,name,account_type)")
+      .not("close_time", "is", null)
+      .gte("close_time", dayStart.toISOString())
+      .lt("close_time", dayEnd.toISOString())
+      .neq("id", id)
+      .order("close_time", { ascending: true }),
+  ]);
 
   return (
     <div>
@@ -49,8 +61,10 @@ export default async function TradeDetailPage({ params }: { params: { id: string
           strategies={(strategies as Strategy[]) ?? []}
           strategyRules={strategyRules}
           checkedMap={checkedMap}
+          favoriteSymbols={settings.favorite_symbols}
+          sameDayTrades={(sameDayTradesRaw as Trade[]) ?? []}
         />
-        <LinkedDailyNote date={noteDate} notes={(linkedNotes as DailyNote[]) ?? []} />
+        <LinkedDailyNote date={noteDate} notes={(linkedNotes as DailyNote[]) ?? []} strategies={(strategies as Strategy[]) ?? []} />
       </div>
     </div>
   );

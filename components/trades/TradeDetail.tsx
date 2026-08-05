@@ -1,14 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import type { Trade, TradingAccount, Strategy, StrategyRule } from "@/lib/types";
-import { emotionMeta } from "@/lib/constants";
-import { formatCurrency } from "@/lib/analytics";
-import { deleteTrade } from "@/app/(app)/trades/actions";
+import { emotionMeta, type SessionValue } from "@/lib/constants";
+import { formatCurrency, sessionFromTime } from "@/lib/analytics";
+import { deleteTrade, toggleFollowedPlan } from "@/app/(app)/trades/actions";
 import { TradeForm } from "./TradeForm";
 import { ChecklistEditor } from "./ChecklistEditor";
 import { Spinner } from "@/components/Spinner";
+
+const SESSION_LABELS: Record<SessionValue, string> = { Asia: "Asia", London: "London", NY_AM: "NY AM", NY_PM: "NY PM" };
 
 export function TradeDetail({
   trade,
@@ -16,17 +19,31 @@ export function TradeDetail({
   strategies,
   strategyRules,
   checkedMap,
+  favoriteSymbols = [],
+  sameDayTrades = [],
 }: {
   trade: Trade;
   accounts: TradingAccount[];
   strategies: Strategy[];
   strategyRules: StrategyRule[];
   checkedMap: Record<string, boolean>;
+  favoriteSymbols?: string[];
+  sameDayTrades?: Trade[];
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [followedPlan, setFollowedPlan] = useState(trade.followed_plan);
+  const [isPendingPlan, startPlanTransition] = useTransition();
+
+  function handleTogglePlan() {
+    const next = !followedPlan;
+    setFollowedPlan(next);
+    startPlanTransition(() => {
+      toggleFollowedPlan(trade.id, next);
+    });
+  }
 
   // Nút xóa đã "vũ trang" (chờ bấm lần 2) sẽ tự tắt sau vài giây để tránh trường hợp
   // người dùng lỡ tay bấm trúng lần 2 sau khi đã rời mắt khỏi màn hình.
@@ -53,6 +70,7 @@ export function TradeDetail({
           trade={trade}
           accounts={accounts}
           strategies={strategies}
+          favoriteSymbols={favoriteSymbols}
           onCancel={() => setEditing(false)}
           onDone={() => setEditing(false)}
         />
@@ -87,7 +105,7 @@ export function TradeDetail({
           </div>
         </div>
 
-        <div className="flex gap-2 mt-4">
+        <div className="flex items-center gap-2 mt-4 flex-wrap">
           <button
             className="btn-secondary"
             onClick={() => {
@@ -96,6 +114,14 @@ export function TradeDetail({
             }}
           >
             ✏️ Chỉnh sửa lệnh
+          </button>
+          <button
+            type="button"
+            disabled={isPendingPlan}
+            onClick={handleTogglePlan}
+            className={`btn ${followedPlan ? "bg-profit/15 text-profit border border-profit/40" : "bg-surface2 text-muted border border-border"}`}
+          >
+            {followedPlan ? "✓" : "○"} Đã làm theo plan
           </button>
           {confirmDelete ? (
             <button className="btn-danger" disabled={deleting} onClick={handleDelete}>
@@ -137,6 +163,13 @@ export function TradeDetail({
             <div>
               <dt className="text-xs text-muted">Thời gian đóng</dt>
               <dd>{trade.close_time ? new Date(trade.close_time).toLocaleString("vi-VN") : "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted">Phiên giao dịch</dt>
+              <dd>
+                {SESSION_LABELS[trade.session ?? sessionFromTime(trade.open_time)]}
+                {!trade.session && <span className="text-muted text-xs"> (tự động)</span>}
+              </dd>
             </div>
             <div>
               <dt className="text-xs text-muted">Phí hoa hồng</dt>
@@ -183,6 +216,46 @@ export function TradeDetail({
       ) : (
         <div className="card text-sm text-muted">
           {trade.strategy_id ? "Chiến lược này chưa có quy tắc checklist nào." : "Gán chiến lược ở form chỉnh sửa để mở checklist kỷ luật."}
+        </div>
+      )}
+
+      {sameDayTrades.length > 0 && (
+        <div className="card overflow-x-auto p-0">
+          <h3 className="font-semibold text-slate-100 px-5 pt-5 pb-3">
+            Lệnh khác cùng ngày <span className="text-muted font-normal text-sm">({sameDayTrades.length} lệnh)</span>
+          </h3>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Giờ đóng</th>
+                <th>Tài khoản</th>
+                <th>Cặp tiền</th>
+                <th>Loại</th>
+                <th>KL</th>
+                <th className="text-right">P&L</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {sameDayTrades.map((t) => (
+                <tr key={t.id}>
+                  <td className="text-xs whitespace-nowrap">{new Date(t.close_time!).toLocaleTimeString("vi-VN")}</td>
+                  <td className="text-xs whitespace-nowrap">{t.trading_accounts?.name ?? "—"}</td>
+                  <td className="font-medium">{t.symbol}</td>
+                  <td>
+                    <span className={t.side === "BUY" ? "text-profit" : "text-loss"}>{t.side}</span>
+                  </td>
+                  <td>{t.volume}</td>
+                  <td className={`text-right font-semibold ${t.pnl >= 0 ? "text-profit" : "text-loss"}`}>{formatCurrency(t.pnl)}</td>
+                  <td>
+                    <Link href={`/trades/${t.id}`} className="text-primary text-xs whitespace-nowrap hover:underline">
+                      Chi tiết →
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

@@ -29,14 +29,14 @@ export default async function TradesPage({
 
   const [{ data: tradesRaw }, { data: accounts }, { data: strategies }] = await Promise.all([
     query,
-    supabase.from("trading_accounts").select("*").order("created_at", { ascending: true }),
+    supabase.from("trading_accounts").select("*").order("created_at", { ascending: false }),
     supabase.from("strategies").select("*").order("name", { ascending: true }),
   ]);
 
   let trades = (tradesRaw as Trade[]) ?? [];
 
   if (params.session) {
-    trades = trades.filter((t) => sessionFromTime(t.open_time) === params.session);
+    trades = trades.filter((t) => (t.session ?? sessionFromTime(t.open_time)) === params.session);
   }
   if (params.weekday !== undefined && params.weekday !== "") {
     trades = trades.filter((t) => weekdayFromTime(t.open_time) === Number(params.weekday));

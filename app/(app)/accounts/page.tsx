@@ -8,7 +8,7 @@ export default async function AccountsPage() {
   const { data: accounts } = await supabase
     .from("trading_accounts")
     .select("*")
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: false });
 
   return (
     <div>

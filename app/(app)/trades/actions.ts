@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { SESSIONS } from "@/lib/constants";
 
 export type ActionState = { error: string | null };
 
@@ -24,7 +25,7 @@ function parseTradeInput(formData: FormData) {
   // trình duyệt, xem components/trades/TradeForm.tsx) — không parse lại bằng new Date() ở server
   // vì server (Vercel) chạy giờ UTC, khác giờ VN của người dùng.
   const open_time = String(formData.get("open_time") ?? "");
-  const close_time = String(formData.get("close_time") ?? "");
+  const close_time = String(formData.get("close_time") ?? "") || null;
   const gross_profit = numOrNull(formData.get("gross_profit")) ?? 0;
   const commission = numOrNull(formData.get("commission")) ?? 0;
   const swap = numOrNull(formData.get("swap")) ?? 0;
@@ -33,6 +34,7 @@ function parseTradeInput(formData: FormData) {
   const rr_ratio = numOrNull(formData.get("rr_ratio"));
   const notes = String(formData.get("notes") ?? "").trim() || null;
   const screenshot_url = String(formData.get("screenshot_url") ?? "").trim() || null;
+  const session = String(formData.get("session") ?? "").trim() || null;
 
   return {
     account_id,
@@ -51,6 +53,7 @@ function parseTradeInput(formData: FormData) {
     rr_ratio,
     notes,
     screenshot_url,
+    session,
   };
 }
 
@@ -73,11 +76,12 @@ function validateTradeInput(input: ReturnType<typeof parseTradeInput>): string |
   if (hasClosePrice && input.close_price! < 0) return "Giá đóng lệnh không hợp lệ.";
   if (hasCloseTime) {
     const openMs = new Date(input.open_time).getTime();
-    const closeMs = new Date(input.close_time).getTime();
+    const closeMs = new Date(input.close_time!).getTime();
     if (Number.isNaN(closeMs)) return "Thời gian đóng lệnh không hợp lệ.";
     if (closeMs < openMs) return "Thời gian đóng lệnh phải sau thời gian mở lệnh.";
   }
   if (input.rr_ratio !== null && input.rr_ratio < 0) return "Tỷ lệ R:R không hợp lệ.";
+  if (input.session && !(SESSIONS as readonly string[]).includes(input.session)) return "Phiên giao dịch không hợp lệ.";
 
   return null;
 }
@@ -237,6 +241,16 @@ export async function bulkImportTrades(
   revalidatePath("/accounts");
 
   return { error: null, insertedCount: rows.length };
+}
+
+export async function toggleFollowedPlan(tradeId: string, followed: boolean): Promise<ActionState> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("trades").update({ followed_plan: followed }).eq("id", tradeId);
+  if (error) return { error: error.message };
+
+  revalidatePath(`/trades/${tradeId}`);
+  revalidatePath("/trades");
+  return { error: null };
 }
 
 export async function toggleRuleCheck(tradeId: string, ruleId: string, checked: boolean): Promise<ActionState> {

@@ -1,4 +1,4 @@
-import type { AccountTypeValue, AssetClassValue, EmotionValue, MarketTrendValue, TradeSide, TradeStatusValue } from "@/lib/constants";
+import type { AccountTypeValue, AssetClassValue, EmotionValue, MarketTrendValue, SessionValue, TradeSide, TradeStatusValue } from "@/lib/constants";
 
 export type TradingAccount = {
   id: string;
@@ -55,6 +55,8 @@ export type Trade = {
   notes: string | null;
   screenshot_url: string | null;
   source: string;
+  session: SessionValue | null;
+  followed_plan: boolean;
   created_at: string;
   updated_at: string;
   trading_accounts?: Pick<TradingAccount, "id" | "name" | "account_type">;
@@ -75,8 +77,10 @@ export type DailyNote = {
   mood: EmotionValue | null;
   market_trend: MarketTrendValue | null;
   content: string | null;
+  strategy_id: string | null;
   created_at: string;
   updated_at: string;
+  strategies?: Pick<Strategy, "id" | "name">;
 };
 
 export type TradeFilters = {
@@ -87,4 +91,20 @@ export type TradeFilters = {
   weekday?: number;
   strategyId?: string;
   status?: TradeStatusValue;
+};
+
+export type TimeFormatValue = "12h" | "24h";
+export type ThemeValue = "dark" | "light";
+export type DashboardRangeValue = "" | "7d" | "30d" | "month";
+
+export type UserSettings = {
+  user_id: string;
+  favorite_symbols: string[];
+  default_account_id: string | null;
+  time_format: TimeFormatValue;
+  theme: ThemeValue;
+  journal_reminder_enabled: boolean;
+  dashboard_default_range: DashboardRangeValue;
+  created_at: string;
+  updated_at: string;
 };

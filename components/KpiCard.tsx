@@ -16,7 +16,7 @@ export function KpiCard({
       <div className="text-xs uppercase tracking-wide text-muted font-medium">{label}</div>
       <div
         className={clsx(
-          "text-2xl font-bold mt-2",
+          "text-2xl font-bold mt-2 break-words",
           tone === "profit" && "text-profit",
           tone === "loss" && "text-loss",
           tone === "neutral" && "text-slate-100"

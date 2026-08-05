@@ -10,7 +10,8 @@ function parseNoteInput(formData: FormData) {
   const mood = String(formData.get("mood") ?? "") || null;
   const market_trend = String(formData.get("market_trend") ?? "") || null;
   const content = String(formData.get("content") ?? "").trim() || null;
-  return { note_date, mood, market_trend, content };
+  const strategy_id = String(formData.get("strategy_id") ?? "") || null;
+  return { note_date, mood, market_trend, content, strategy_id };
 }
 
 function validateNoteInput(input: ReturnType<typeof parseNoteInput>): string | null {

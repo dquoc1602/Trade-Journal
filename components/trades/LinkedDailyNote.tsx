@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useFormState, useFormStatus } from "react-dom";
-import type { DailyNote } from "@/lib/types";
+import type { DailyNote, Strategy } from "@/lib/types";
 import { EMOTIONS, MARKET_TRENDS } from "@/lib/constants";
 import { saveNote, type ActionState } from "@/app/(app)/notes/actions";
 import { useFormSuccessFlash } from "@/lib/useFormSuccessFlash";
@@ -19,7 +19,7 @@ function SubmitButton() {
   );
 }
 
-function NewNoteForm({ date, onSaved }: { date: string; onSaved: () => void }) {
+function NewNoteForm({ date, strategies, onSaved }: { date: string; strategies: Strategy[]; onSaved: () => void }) {
   const [state, formAction] = useFormState<ActionState, FormData>(saveNote, { error: null });
   const savedFlash = useFormSuccessFlash(state, onSaved);
 
@@ -48,6 +48,17 @@ function NewNoteForm({ date, onSaved }: { date: string; onSaved: () => void }) {
           </select>
         </div>
       </div>
+      <div>
+        <label htmlFor="linked-strategy">Chiến lược liên quan (tuỳ chọn)</label>
+        <select id="linked-strategy" name="strategy_id" defaultValue="" className="w-full">
+          <option value="">-- Không gắn chiến lược --</option>
+          {strategies.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </select>
+      </div>
       <textarea name="content" rows={3} placeholder="Hôm nay giao dịch thế nào? Có mắc lỗi tâm lý gì không?" className="w-full" />
       {state.error && <p className="text-sm text-loss bg-loss/10 border border-loss/30 rounded-md px-3 py-2">{state.error}</p>}
       {savedFlash && <p className="text-sm text-profit">✓ Đã lưu nhật ký ngày</p>}
@@ -56,7 +67,7 @@ function NewNoteForm({ date, onSaved }: { date: string; onSaved: () => void }) {
   );
 }
 
-export function LinkedDailyNote({ date, notes }: { date: string; notes: DailyNote[] }) {
+export function LinkedDailyNote({ date, notes, strategies }: { date: string; notes: DailyNote[]; strategies: Strategy[] }) {
   const [adding, setAdding] = useState(notes.length === 0);
   const dateLabel = new Date(date).toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" });
 
@@ -76,6 +87,7 @@ export function LinkedDailyNote({ date, notes }: { date: string; notes: DailyNot
           {notes.map((n) => {
             const mood = EMOTIONS.find((e) => e.value === n.mood);
             const trend = MARKET_TRENDS.find((t) => t.value === n.market_trend);
+            const strategy = strategies.find((s) => s.id === n.strategy_id);
             return (
               <div key={n.id} className="rounded-md bg-surface2/60 border border-border px-3 py-2">
                 <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -85,6 +97,7 @@ export function LinkedDailyNote({ date, notes }: { date: string; notes: DailyNot
                     </span>
                   )}
                   {trend && <span className="text-xs px-2 py-0.5 rounded-full bg-surface text-muted">{trend.label}</span>}
+                  {strategy && <span className="text-xs px-2 py-0.5 rounded-full bg-surface text-muted">🎯 {strategy.name}</span>}
                   <span className="text-[10px] text-muted">
                     lúc {new Date(n.created_at).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
                   </span>
@@ -102,6 +115,7 @@ export function LinkedDailyNote({ date, notes }: { date: string; notes: DailyNot
       {adding && (
         <NewNoteForm
           date={date}
+          strategies={strategies}
           onSaved={() => {
             setAdding(false);
           }}

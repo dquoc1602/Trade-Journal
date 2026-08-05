@@ -12,7 +12,7 @@ const RANGES = [
   { value: "month", label: "Tháng này" },
 ];
 
-export function DashboardFilters({ accounts }: { accounts: TradingAccount[] }) {
+export function DashboardFilters({ accounts, defaultRange = "" }: { accounts: TradingAccount[]; defaultRange?: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -49,7 +49,7 @@ export function DashboardFilters({ accounts }: { accounts: TradingAccount[] }) {
         ))}
       </select>
       <select
-        value={searchParams.get("range") ?? ""}
+        value={searchParams.get("range") ?? defaultRange}
         disabled={isPending}
         onChange={(e) => setParam("range", e.target.value)}
         className="w-full sm:w-48"

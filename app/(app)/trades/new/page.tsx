@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getUserSettings } from "@/lib/userSettings";
 import { PageHeader } from "@/components/PageHeader";
 import { TradeForm } from "@/components/trades/TradeForm";
 import type { TradingAccount, Strategy } from "@/lib/types";
@@ -7,9 +8,10 @@ import type { TradingAccount, Strategy } from "@/lib/types";
 export default async function NewTradePage() {
   const supabase = await createClient();
 
-  const [{ data: accounts }, { data: strategies }] = await Promise.all([
-    supabase.from("trading_accounts").select("*").order("created_at", { ascending: true }),
+  const [{ data: accounts }, { data: strategies }, settings] = await Promise.all([
+    supabase.from("trading_accounts").select("*").order("created_at", { ascending: false }),
     supabase.from("strategies").select("*").order("name", { ascending: true }),
+    getUserSettings(supabase),
   ]);
 
   const accountList = (accounts as TradingAccount[]) ?? [];
@@ -26,7 +28,12 @@ export default async function NewTradePage() {
           </Link>
         </div>
       ) : (
-        <TradeForm accounts={accountList} strategies={(strategies as Strategy[]) ?? []} />
+        <TradeForm
+          accounts={accountList}
+          strategies={(strategies as Strategy[]) ?? []}
+          favoriteSymbols={settings.favorite_symbols}
+          defaultAccountId={settings.default_account_id}
+        />
       )}
     </div>
   );

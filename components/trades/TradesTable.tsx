@@ -70,7 +70,7 @@ export function TradesTable({ trades, strategies }: { trades: Trade[]; strategie
                   <div>{weekdayLabel}</div>
                   <div className="text-muted">{new Date(t.open_time).toLocaleString("vi-VN")}</div>
                 </td>
-                <td className="text-xs">{SESSION_LABELS[sessionFromTime(t.open_time)]}</td>
+                <td className="text-xs">{SESSION_LABELS[t.session ?? sessionFromTime(t.open_time)]}</td>
                 <td className="text-xs whitespace-nowrap">{t.trading_accounts?.name ?? "—"}</td>
                 <td className="font-medium">{t.symbol}</td>
                 <td>

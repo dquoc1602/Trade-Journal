@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getUserSettings } from "@/lib/userSettings";
 import { PageHeader } from "@/components/PageHeader";
 import { CalendarClient } from "@/components/calendar/CalendarClient";
 import { vnMidnightUtc } from "@/lib/analytics";
@@ -38,10 +39,11 @@ export default async function CalendarPage({
   const nextMonthNum = month === 12 ? 1 : month + 1;
   const noteMonthEnd = `${nextMonthYear}-${String(nextMonthNum).padStart(2, "0")}-01`;
 
-  const [{ data: trades }, { data: accounts }, { data: notes }] = await Promise.all([
+  const [{ data: trades }, { data: accounts }, { data: notes }, settings] = await Promise.all([
     query,
-    supabase.from("trading_accounts").select("*").order("created_at", { ascending: true }),
+    supabase.from("trading_accounts").select("*").order("created_at", { ascending: false }),
     supabase.from("daily_notes").select("note_date").gte("note_date", noteMonthStart).lt("note_date", noteMonthEnd),
+    getUserSettings(supabase),
   ]);
 
   const noteDates = Array.from(new Set(((notes as { note_date: string }[]) ?? []).map((n) => n.note_date)));
@@ -60,6 +62,7 @@ export default async function CalendarPage({
         accounts={(accounts as TradingAccount[]) ?? []}
         noteDates={noteDates}
         showAccountLabels={!params.accountId}
+        journalReminderEnabled={settings.journal_reminder_enabled}
       />
     </div>
   );

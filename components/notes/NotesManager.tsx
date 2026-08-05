@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
-import type { DailyNote } from "@/lib/types";
+import type { DailyNote, Strategy } from "@/lib/types";
 import { EMOTIONS, MARKET_TRENDS } from "@/lib/constants";
 import { deleteNote, saveNote, updateNote, type ActionState } from "@/app/(app)/notes/actions";
 import { useFormSuccessFlash } from "@/lib/useFormSuccessFlash";
@@ -26,10 +26,12 @@ function todayStr() {
 function NoteForm({
   note,
   defaultDate,
+  strategies,
   onDone,
 }: {
   note?: DailyNote;
   defaultDate: string;
+  strategies: Strategy[];
   onDone?: () => void;
 }) {
   const isEdit = Boolean(note);
@@ -83,6 +85,18 @@ function NoteForm({
       </div>
 
       <div>
+        <label htmlFor={`strategy-${uid}`}>Chiến lược liên quan (tuỳ chọn)</label>
+        <select id={`strategy-${uid}`} name="strategy_id" defaultValue={note?.strategy_id ?? ""} className="w-full">
+          <option value="">-- Không gắn chiến lược --</option>
+          {strategies.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
         <label htmlFor={`content-${uid}`}>Hôm nay giao dịch thế nào?</label>
         <textarea
           id={`content-${uid}`}
@@ -109,7 +123,15 @@ function NoteForm({
   );
 }
 
-export function NotesManager({ notes, initialDate }: { notes: DailyNote[]; initialDate?: string }) {
+export function NotesManager({
+  notes,
+  strategies,
+  initialDate,
+}: {
+  notes: DailyNote[];
+  strategies: Strategy[];
+  initialDate?: string;
+}) {
   const [editingNote, setEditingNote] = useState<DailyNote | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -160,8 +182,17 @@ export function NotesManager({ notes, initialDate }: { notes: DailyNote[]; initi
                 const isEditingThis = editingNote?.id === n.id;
 
                 if (isEditingThis) {
-                  return <NoteForm key={n.id} note={n} defaultDate={n.note_date} onDone={() => setEditingNote(null)} />;
+                  return (
+                    <NoteForm
+                      key={n.id}
+                      note={n}
+                      defaultDate={n.note_date}
+                      strategies={strategies}
+                      onDone={() => setEditingNote(null)}
+                    />
+                  );
                 }
+                const strategy = strategies.find((s) => s.id === n.strategy_id);
 
                 return (
                   <div key={n.id} className="card">
@@ -173,6 +204,7 @@ export function NotesManager({ notes, initialDate }: { notes: DailyNote[]; initi
                           </span>
                         )}
                         {trend && <span className="text-xs px-2 py-0.5 rounded-full bg-surface2 text-muted">{trend.label}</span>}
+                        {strategy && <span className="text-xs px-2 py-0.5 rounded-full bg-surface2 text-muted">🎯 {strategy.name}</span>}
                         <span className="text-[10px] text-muted">
                           lúc {new Date(n.created_at).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
                         </span>
@@ -213,7 +245,7 @@ export function NotesManager({ notes, initialDate }: { notes: DailyNote[]; initi
       </div>
 
       <div className="lg:sticky lg:top-6 h-fit">
-        <NoteForm key={initialDate ?? "new"} defaultDate={initialDate ?? todayStr()} />
+        <NoteForm key={initialDate ?? "new"} defaultDate={initialDate ?? todayStr()} strategies={strategies} />
       </div>
     </div>
   );

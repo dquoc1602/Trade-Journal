@@ -17,6 +17,7 @@ export function CalendarClient({
   accounts,
   noteDates,
   showAccountLabels = true,
+  journalReminderEnabled = true,
 }: {
   year: number;
   month: number;
@@ -24,6 +25,7 @@ export function CalendarClient({
   accounts: TradingAccount[];
   noteDates: string[];
   showAccountLabels?: boolean;
+  journalReminderEnabled?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -170,20 +172,20 @@ export function CalendarClient({
                   const dayPnl = dayTrades.reduce((s, t) => s + t.pnl, 0);
                   const hasTrades = dayTrades.length > 0;
                   const isSelected = key === selected;
-                  const needsJournal = hasTrades && !noteDateSet.has(key);
+                  const needsJournal = journalReminderEnabled && hasTrades && !noteDateSet.has(key);
 
                   if (colIdx === SATURDAY_COL && weekHasAnyDay) {
                     return (
                       <button
                         key={key}
                         onClick={() => setSelected(key)}
-                        className={`aspect-square rounded-md border p-1.5 text-left text-xs transition-colors flex flex-col justify-between ${
+                        className={`min-h-[4.5rem] sm:min-h-20 rounded-md border p-1.5 text-left text-[11px] sm:text-xs transition-colors flex flex-col justify-between ${
                           isSelected ? "border-primary" : "border-border"
                         } bg-surface2/60 hover:bg-surface2`}
                       >
                         <div className="text-muted font-medium">Tuần {rowIdx + 1}</div>
                         <div>
-                          <div className={`font-semibold ${weekPnl >= 0 ? "text-profit" : "text-loss"}`}>
+                          <div className={`font-semibold break-words ${weekPnl >= 0 ? "text-profit" : "text-loss"}`}>
                             {weekTradeCount > 0 ? formatCurrency(weekPnl) : "—"}
                           </div>
                           <div className="text-muted text-[10px] mt-0.5">{weekTradeCount} lệnh</div>
@@ -196,7 +198,7 @@ export function CalendarClient({
                     <button
                       key={key}
                       onClick={() => setSelected(key)}
-                      className={`relative aspect-square rounded-md border p-1.5 text-left text-xs transition-colors ${
+                      className={`relative min-h-[4.5rem] sm:min-h-20 rounded-md border p-1.5 text-left text-[11px] sm:text-xs transition-colors ${
                         isSelected ? "border-primary" : "border-border"
                       } ${hasTrades ? (dayPnl >= 0 ? "bg-profit/10 hover:bg-profit/20" : "bg-loss/10 hover:bg-loss/20") : "hover:bg-surface2"}`}
                     >
@@ -210,7 +212,10 @@ export function CalendarClient({
                       )}
                       <div className="text-muted">{day}</div>
                       {hasTrades && (
-                        <div className={`font-semibold mt-1 ${dayPnl >= 0 ? "text-profit" : "text-loss"}`}>{formatCurrency(dayPnl)}</div>
+                        <div className="mt-1">
+                          <div className={`font-semibold break-words ${dayPnl >= 0 ? "text-profit" : "text-loss"}`}>{formatCurrency(dayPnl)}</div>
+                          <div className="text-muted text-[10px]">{dayTrades.length} lệnh</div>
+                        </div>
                       )}
                     </button>
                   );
@@ -247,18 +252,22 @@ export function CalendarClient({
         )}
 
         {selectedTrades.length > 0 && (
-          <div className={`mt-4 pt-4 border-t border-border ${selectedHasNote ? "" : ""}`}>
+          <div className="mt-4 pt-4 border-t border-border">
             {selectedHasNote ? (
               <Link href={`/notes?date=${selected}`} className="text-xs text-primary hover:underline">
                 📝 Xem / thêm nhật ký cho ngày này →
               </Link>
-            ) : (
+            ) : journalReminderEnabled ? (
               <div className="text-xs bg-amber-400/10 border border-amber-400/30 rounded-md px-3 py-2">
                 <span className="text-amber-400">⚠️ Chưa có nhật ký cho ngày này.</span>{" "}
                 <Link href={`/notes?date=${selected}`} className="text-primary hover:underline font-medium">
                   Viết ngay →
                 </Link>
               </div>
+            ) : (
+              <Link href={`/notes?date=${selected}`} className="text-xs text-primary hover:underline">
+                📝 Viết nhật ký cho ngày này →
+              </Link>
             )}
           </div>
         )}

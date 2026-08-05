@@ -8,7 +8,7 @@ export default async function ImportTradesPage() {
   const supabase = await createClient();
 
   const [{ data: accounts }, { data: strategies }] = await Promise.all([
-    supabase.from("trading_accounts").select("*").order("created_at", { ascending: true }),
+    supabase.from("trading_accounts").select("*").order("created_at", { ascending: false }),
     supabase.from("strategies").select("*").order("name", { ascending: true }),
   ]);
 

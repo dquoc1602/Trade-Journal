@@ -129,7 +129,7 @@ function AccountForm({
           {isKnownFirm ? (
             <>
               <input type="hidden" name="asset_class" value={firm!.assetClass} />
-              <div className="h-[38px] flex items-center px-3 text-sm text-slate-200 bg-surface2/60 border border-border rounded-md">
+              <div className="min-h-[2.375rem] flex items-center px-3 py-2 text-sm text-slate-200 bg-surface2/60 border border-border rounded-md">
                 {ASSET_CLASSES.find((a) => a.value === firm!.assetClass)?.label}
                 <span className="text-muted text-xs ml-1">(tự động)</span>
               </div>
